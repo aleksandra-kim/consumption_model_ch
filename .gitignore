@@ -102,3 +102,7 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# local files
+data/acs.est.8b01452.pdf
+data/es8b01452_si_001.pdf
