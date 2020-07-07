@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from copy import copy
+from copy import copy, deepcopy
 import os, json
 import re
 import brightway2 as bw
@@ -263,11 +263,58 @@ def append_one_exchange(df, df_ind_j, ConversionDem2FU):
     
     try:
         # Find activity in the ecoinvent 3.3 cutoff using bw functionality
-#         current_project = deepcopy(bw.projects.current)
-#         bw.projects.set_current('ecoinvent 3.3 cutoff') # Temporarily switch to ecoinvent 3.3 project
+        current_project = deepcopy(bw.projects.current)
+        bw.projects.set_current('ecoinvent 3.3 cutoff') # Temporarily switch to ecoinvent 3.3 project
         act_bw = bw.get_activity(input_act_db_code_tuple)
-#         bw.projects.set_current(current_project)
+        bw.projects.set_current(current_project)
         input_act_values_dict = create_input_act_dict(act_bw, input_act_amount)
+        
+    except:
+        # If bw.get_activity does not work for whichever reason, fill info manually
+        input_act_values_dict = bw_get_activity_info_manually(input_act_str, db_name, input_act_amount)
+        
+    # Add exchange to the dataframe with database in brightway format
+    df = append_exchanges_in_correct_columns(df, input_act_values_dict)
+    
+    return df
+
+
+def append_ecoinvent_exchange(df, df_ind_j, ConversionDem2FU):
+    '''
+    Extract information about one input activity, eg name, unit, location, etc and append it to the dataframe df.
+    '''    
+    # Extract the activity number
+    k = int(''.join(c for c in df_ind_j.index[0] if c.isdigit()))
+    # Extract information about activity and save it
+    input_act_str = df_ind_j['DB Act ' + str(k)]
+    input_act_db_code = df_ind_j['Activity ' + str(k)]
+    
+    # Find this input activity in brightway databases
+    db_name = input_act_db_code.split("'")[1]
+    
+    # Only include ecoinvent exchanges
+    dbs_no_list = ['agribalyse', 'exiobase', 'heia']
+    for db_no in dbs_no_list:
+        if db_no in db_name.lower():
+            return df
+        
+    code = input_act_db_code.split("'")[3]
+    input_act_db_code_tuple = (db_name, code)
+    
+    # Compute amount
+    input_act_amount = df_ind_j['On ' + str(k)] \
+                     * df_ind_j['Amount Act ' + str(k)] \
+                     * df_ind_j['CFL Act ' + str(k)] \
+                     * ConversionDem2FU
+    
+    try:
+        # Find activity in the ecoinvent 3.3 cutoff using bw functionality
+        current_project = deepcopy(bw.projects.current)
+        bw.projects.set_current('ecoinvent 3.3 cutoff') # Temporarily switch to ecoinvent 3.3 project
+        act_bw = bw.get_activity(input_act_db_code_tuple)
+        bw.projects.set_current(current_project)
+        input_act_values_dict = create_input_act_dict(act_bw, input_act_amount)
+        
         
     except:
         # If bw.get_activity does not work for whichever reason, fill info manually
