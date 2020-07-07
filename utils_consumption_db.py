@@ -260,18 +260,21 @@ def append_one_exchange(df, df_ind_j, ConversionDem2FU):
                      * df_ind_j['Amount Act ' + str(k)] \
                      * df_ind_j['CFL Act ' + str(k)] \
                      * ConversionDem2FU
-    
-    try:
-        # Find activity in the ecoinvent 3.3 cutoff using bw functionality
+
+    if db_name == 'ecoinvent 3.3 cutoff':
         current_project = deepcopy(bw.projects.current)
         bw.projects.set_current('ecoinvent 3.3 cutoff') # Temporarily switch to ecoinvent 3.3 project
         act_bw = bw.get_activity(input_act_db_code_tuple)
         bw.projects.set_current(current_project)
         input_act_values_dict = create_input_act_dict(act_bw, input_act_amount)
-        
-    except:
-        # If bw.get_activity does not work for whichever reason, fill info manually
-        input_act_values_dict = bw_get_activity_info_manually(input_act_str, db_name, input_act_amount)
+    else:
+        try:
+            # Find activity in the ecoinvent 3.3 cutoff using bw functionality
+            act_bw = bw.get_activity(input_act_db_code_tuple)
+            input_act_values_dict = create_input_act_dict(act_bw, input_act_amount)
+        except:
+            # If bw.get_activity does not work for whichever reason, fill info manually
+            input_act_values_dict = bw_get_activity_info_manually(input_act_str, db_name, input_act_amount)
         
     # Add exchange to the dataframe with database in brightway format
     df = append_exchanges_in_correct_columns(df, input_act_values_dict)
