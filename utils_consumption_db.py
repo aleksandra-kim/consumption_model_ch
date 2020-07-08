@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import pandas as pd
 import numpy as np
 from copy import copy, deepcopy
@@ -7,8 +8,8 @@ import brightway2 as bw
 
 
 ###########################
-### 1. Define constants ###
-###########################
+# ## 1. Define constants ###
+# ##########################
 
 # Database name
 CONSUMPTION_DB_NAME = 'CH consumption 1.0'
@@ -46,8 +47,8 @@ UNIT_DICT = {
 
 
 ####################################
-### 2.Import ecoinvent 3.3 cutoff ##
-####################################
+# ## 2.Import ecoinvent 3.3 cutoff ##
+# ###################################
 # This is needed because Andi's activities were given as ecoinvent 3.3 cutoff codes, 
 # so information on the exact location, reference product, etc is contained in that code.
 # Without using ecoinvent 3.3, we are left with numerous unlinked exchanges
@@ -71,8 +72,8 @@ def create_ecoinvent_33_project(ei33_path):
 
 
 ###################################################################
-### 3.Convert data to brightway database format -> all functions ##
-###################################################################
+# ## 3.Convert data to brightway database format -> all functions ##
+# ##################################################################
 
 def complete_columns(df):
     '''
@@ -461,8 +462,8 @@ def get_units_habe(path, year):
 
 
 ##################################################################################################
-### 4. Replace names of old databases with the new ones in the consumption database excel file ###
-##################################################################################################
+# ## 4. Replace names of old databases with the new ones in the consumption database excel file ###
+# #################################################################################################
 
 # Constants
 DB_COLUMN = 'F'
