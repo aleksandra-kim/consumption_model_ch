@@ -46,33 +46,9 @@ UNIT_DICT = {
 }
 
 
-####################################
-# ## 2.Import ecoinvent 3.3 cutoff ##
-# ###################################
-# This is needed because Andi's activities were given as ecoinvent 3.3 cutoff codes, 
-# so information on the exact location, reference product, etc is contained in that code.
-# Without using ecoinvent 3.3, we are left with numerous unlinked exchanges
-
-def create_ecoinvent_33_project(ei33_path):
-    
-    ei33_name = "ecoinvent 3.3 cutoff"  
-    bw.projects.set_current(ei33_name)
-    
-    bw.bw2setup()
-    
-    if ei33_name in bw.databases:
-        print(ei33_name + " database already present!!! No import is needed")
-    else:
-        ei33 = bw.SingleOutputEcospold2Importer(ei33_path, ei33_name)
-        ei33.apply_strategies()
-        ei33.match_database(db_name='biosphere3',fields=('name', 'category', 'unit', 'location'))
-        ei33.statistics()
-        ei33.write_database()
-
-
 
 ###################################################################
-# ## 3.Convert data to brightway database format -> all functions ##
+# ## 2.Convert data to brightway database format -> all functions ##
 # ##################################################################
 
 def complete_columns(df):
@@ -237,7 +213,7 @@ def is_pattern_correct(df_ind_j):
         return 0
 
 
-def append_one_exchange(df, df_ind_j, ConversionDem2FU):
+def append_one_exchange(df, df_ind_j, ConversionDem2FU, exclude_dbs=[]):
     '''
     Extract information about one input activity, eg name, unit, location, etc and append it to the dataframe df.
     '''    
@@ -252,8 +228,8 @@ def append_one_exchange(df, df_ind_j, ConversionDem2FU):
     code = input_act_db_code.split("'")[3]
     input_act_db_code_tuple = (db_name, code)
     
-    # TODO remove HEIA for now
-    if 'heia' in db_name:
+    # exclude unnecessary databases
+    if db_name.lower() in exclude_dbs:
         return df
     
     # Compute amount
@@ -283,54 +259,54 @@ def append_one_exchange(df, df_ind_j, ConversionDem2FU):
     return df
 
 
-def append_ecoinvent_exchange(df, df_ind_j, ConversionDem2FU):
-    '''
-    Extract information about one input activity, eg name, unit, location, etc and append it to the dataframe df.
-    '''    
-    # Extract the activity number
-    k = int(''.join(c for c in df_ind_j.index[0] if c.isdigit()))
-    # Extract information about activity and save it
-    input_act_str = df_ind_j['DB Act ' + str(k)]
-    input_act_db_code = df_ind_j['Activity ' + str(k)]
+# def append_ecoinvent_exchange(df, df_ind_j, ConversionDem2FU):
+#     '''
+#     Extract information about one input activity, eg name, unit, location, etc and append it to the dataframe df.
+#     '''    
+#     # Extract the activity number
+#     k = int(''.join(c for c in df_ind_j.index[0] if c.isdigit()))
+#     # Extract information about activity and save it
+#     input_act_str = df_ind_j['DB Act ' + str(k)]
+#     input_act_db_code = df_ind_j['Activity ' + str(k)]
     
-    # Find this input activity in brightway databases
-    db_name = input_act_db_code.split("'")[1]
+#     # Find this input activity in brightway databases
+#     db_name = input_act_db_code.split("'")[1]
     
-    # Only include ecoinvent exchanges
-    dbs_no_list = ['agribalyse', 'exiobase', 'heia']
-    for db_no in dbs_no_list:
-        if db_no in db_name.lower():
-            return df
+#     # Only include ecoinvent exchanges
+#     dbs_no_list = ['agribalyse', 'exiobase', 'heia']
+#     for db_no in dbs_no_list:
+#         if db_no in db_name.lower():
+#             return df
         
-    code = input_act_db_code.split("'")[3]
-    input_act_db_code_tuple = (db_name, code)
+#     code = input_act_db_code.split("'")[3]
+#     input_act_db_code_tuple = (db_name, code)
     
-    # Compute amount
-    input_act_amount = df_ind_j['On ' + str(k)] \
-                     * df_ind_j['Amount Act ' + str(k)] \
-                     * df_ind_j['CFL Act ' + str(k)] \
-                     * ConversionDem2FU
+#     # Compute amount
+#     input_act_amount = df_ind_j['On ' + str(k)] \
+#                      * df_ind_j['Amount Act ' + str(k)] \
+#                      * df_ind_j['CFL Act ' + str(k)] \
+#                      * ConversionDem2FU
     
-    try:
-        # Find activity in the ecoinvent 3.3 cutoff using bw functionality
-        current_project = deepcopy(bw.projects.current)
-        bw.projects.set_current('ecoinvent 3.3 cutoff') # Temporarily switch to ecoinvent 3.3 project
-        act_bw = bw.get_activity(input_act_db_code_tuple)
-        bw.projects.set_current(current_project)
-        input_act_values_dict = create_input_act_dict(act_bw, input_act_amount)
+#     try:
+#         # Find activity in the ecoinvent 3.3 cutoff using bw functionality
+#         current_project = deepcopy(bw.projects.current)
+#         bw.projects.set_current('ecoinvent 3.3 cutoff') # Temporarily switch to ecoinvent 3.3 project
+#         act_bw = bw.get_activity(input_act_db_code_tuple)
+#         bw.projects.set_current(current_project)
+#         input_act_values_dict = create_input_act_dict(act_bw, input_act_amount)
         
         
-    except:
-        # If bw.get_activity does not work for whichever reason, fill info manually
-        input_act_values_dict = bw_get_activity_info_manually(input_act_str, db_name, input_act_amount)
+#     except:
+#         # If bw.get_activity does not work for whichever reason, fill info manually
+#         input_act_values_dict = bw_get_activity_info_manually(input_act_str, db_name, input_act_amount)
         
-    # Add exchange to the dataframe with database in brightway format
-    df = append_exchanges_in_correct_columns(df, input_act_values_dict)
+#     # Add exchange to the dataframe with database in brightway format
+#     df = append_exchanges_in_correct_columns(df, input_act_values_dict)
     
-    return df
+#     return df
 
 
-def append_exchanges(df, df_ind, df_act, append_one_exchange=append_one_exchange):
+def append_exchanges(df, df_ind, df_act, exclude_dbs=[]):
     '''
     Add all exchanges (input activities) from the row df_ind to consumption database dataframe.
     '''
@@ -372,7 +348,7 @@ def append_exchanges(df, df_ind, df_act, append_one_exchange=append_one_exchange
                 end = start + N_COLUMNS_INPUT_ACTIVITY
                 df_ind_j = df_ind[start:end]
         
-        df = append_one_exchange(df, df_ind_j, ConversionDem2FU)
+        df = append_one_exchange(df, df_ind_j, ConversionDem2FU, exclude_dbs=exclude_dbs)
         
     return df
 
@@ -462,7 +438,7 @@ def get_units_habe(path, year):
 
 
 ##################################################################################################
-# ## 4. Replace names of old databases with the new ones in the consumption database excel file ###
+# ## 3. Replace names of old databases with the new ones in the consumption database excel file ###
 # #################################################################################################
 
 # Constants
