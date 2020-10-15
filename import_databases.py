@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from copy import copy
 import os, json
+from pathlib import Path
 import re
 import string
 
@@ -333,9 +334,26 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
                     exc.update(loc=np.log(exc['amount']))
                     changed.append([i,j])
         assert len(changed)==319
+        
+        ### 6. Scale technosphere such that production exchanges are all 1
+        acts_to_scale = []
+        for act in agg.data:
+            excs = act.get('exchanges', [])
+            for exc in excs:
+                if exc.get('type') == 'production' and exc.get('amount')!=1:
+                    acts_to_scale.append((act,exc.get('amount')))
+                    
+        for act,production_amt in acts_to_scale:
+            excs = act.get('exchanges', [])
+            for exc in excs:
+                if exc.get('type') == 'production':
+                    exc.update(amount=1)
+                else:
+                    current_amt = exc.get('amount')
+                    exc.update(amount=current_amt/production_amt)
 
 
-        ### 6. Remove repeating activities
+        ### 7. Remove repeating activities
         #########
         a = 'ammonium nitrate phosphate production'
         b = 'diammonium phosphate production'
@@ -373,7 +391,15 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
         agg.write_database()
 
 
-def import_consumption_db(co_path, habe_path, exclude_dbs=[], co_name=CONSUMPTION_DB_NAME, habe_year='091011'):
+def import_consumption_db(
+    co_path, 
+    habe_path, 
+    exclude_dbs=[], 
+    co_name=CONSUMPTION_DB_NAME, 
+    habe_year='091011',
+    ei_name="ecoinvent 3.6 cutoff",
+    write_dir="write_files",
+):
     '''
     - Raw data: Excel sheet can be obtained from https://doi.org/10.1021/acs.est.8b01452
     - Terms `exchange` and `input activity` are used interchangeably
@@ -414,7 +440,9 @@ def import_consumption_db(co_path, habe_path, exclude_dbs=[], co_name=CONSUMPTIO
         df_bw.columns = list(string.ascii_uppercase[:len(df_bw.columns)])
         # Update to relevant databases and save excel file
         df_bw = update_all_db(df_bw)
-        path_new_db = 'write_files/consumption_db.xlsx'
+        write_dir = Path(write_dir)
+        write_dir.mkdir(parents=True, exist_ok=True)
+        path_new_db = write_dir / 'consumption_db.xlsx'
         df_bw.to_excel(path_new_db, index=False, header=False)
 
 
@@ -424,119 +452,124 @@ def import_consumption_db(co_path, habe_path, exclude_dbs=[], co_name=CONSUMPTIO
 
         co = bw.ExcelImporter(path_new_db)
         co.apply_strategies()
-        co.match_database('ecoinvent 3.6 cutoff', fields=('name','reference product', 'unit','location','categories'))
+        co.match_database(ei_name, fields=('name','reference product', 'unit','location','categories'))
 
         ex_name = 'EXIOBASE 2.2'
         if ex_name.lower() not in exclude_dbs:
             co.match_database(ex_name, fields=('name','reference product', 'unit','location','categories'))
 
-        ag_name = 'Agribalyse 1.3 - ecoinvent 3.6 cutoff'
+        ag_name = 'Agribalyse 1.3 - ' + ei_name
         if ag_name.lower() not in exclude_dbs:
             co.match_database(ag_name, fields=('name','unit','location'))
 
+        if "3.5" in ei_name or "3.6" in ei_name:
+            print("Migration for 'steam production in chemical industry' and 'market for green bell pepper'")
+            ### 3. Define a migration for two particular activities that can only be hardcoded
+            #########
+            ecoinvent_35_36_change_names_data = {
+                'fields': ['name', ],
+                'data': [
+                    (
+                        ['steam production in chemical industry'], 
+                        {
+                            'name': 'steam production, in chemical industry',
+                            'reference product': 'steam, in chemical industry',
+                            'unit': 'kilogram',
+                            'multiplier': 1/2.75, # see comment on this activity in ecoinvent
+                        }
+                    ),
+                    (
+                        ['market for green bell pepper'],
+                        {
+                            'name': 'market for bell pepper',
+                            'reference product': 'bell pepper',
+                        }
+                    ),
+                ]
+            }
 
-        ### 3. Define a migration for two particular activities that can only be hardcoded
-        #########
-        ecoinvent36_change_names_data = {
-            'fields': ['name', ],
-            'data': [
-                (
-                    ['steam production in chemical industry'], 
-                    {
-                        'name': 'steam production, in chemical industry',
-                        'reference product': 'steam, in chemical industry',
-                        'unit': 'kilogram',
-                        'multiplier': 1/2.75, # see comment on this activity in ecoinvent
-                    }
-                ),
-                (
-                    ['market for green bell pepper'],
-                    {
-                        'name': 'market for bell pepper',
-                        'reference product': 'bell pepper',
-                    }
-                ),
+            bw.Migration("ecoinvent-35-36-change-names").write(
+                ecoinvent_35_36_change_names_data,
+                description="Change names of some activities"
+            )
+            co.migrate('ecoinvent-35-36-change-names')
+            co.match_database(ei_name, fields=('name','reference product', 'unit','location','categories'))
+            
+        if "3.6" in ei_name:
+            print("Linking to ecoinvent 3.6")
+            
+
+
+            ### 4. Define a migration for rice production and specific locations
+            #########
+            # These locations have only non-basmati rice production
+            ecoinvent36_rice_production_data = {
+                'fields': ['name', 'location'],
+                'data': [
+                    (
+                        ['rice production', 'US'],
+                        {
+                            'name': 'rice production, non-basmati',
+                            'reference product': 'rice, non-basmati'
+                        }
+                    ),
+                    (
+                        ['rice production', 'CN'],
+                        {
+                            'name': 'rice production, non-basmati',
+                            'reference product': 'rice, non-basmati'
+                        }
+                    ),
+                ]
+            }
+
+            bw.Migration("ecoinvent36-rice-production").write(
+                ecoinvent36_rice_production_data,
+                description="Change names of some activities"
+            )
+            co.migrate("ecoinvent36-rice-production")
+            co.match_database(ei_name, fields=('name','reference product', 'unit','location','categories'))
+
+
+            ### 5. Manually choose which ecoinvent 3.6 exchanges should be taken for each unlinked exchange
+            #########
+            # The rest of the unlinked exchanges are not uniquely defined in ecoinvent 3.6 -> 1-to-multiple mapping.
+            # For example 'rice production' is now divided into basmati and non-basmati rice. 
+            # Hence, we split them based on their shares in the production volumes.
+            ei36 = bw.Database(ei_name)
+            mapping = [
+                {('market for rice', 'GLO'): 
+                    [act['code'] for act in ei36 if  'market for rice' in act['name'] 
+                                                 and act['location']=='GLO'
+                                                 and 'seed' not in act['name']]},
+
+                {('rice production', 'RoW'): 
+                    [act['code'] for act in ei36 if  'rice production' in act['name'] 
+                                                 and act['location']=='RoW'
+                                                 and 'straw' not in act['reference product']]},
+
+                {('rice production', 'IN'): 
+                    [act['code'] for act in ei36 if  'rice production' in act['name'] 
+                                                 and act['location']=='IN'
+                                                 and 'straw' not in act['reference product']]},
+
+                {('market for wheat grain', 'GLO'): 
+                    [act['code'] for act in ei36 if  'market for wheat grain' in act['name'] 
+                                                 and 'feed' not in act['name']]},
+
+                {('market for maize grain', 'GLO'): 
+                    [act['code'] for act in ei36 if  'market for maize grain' in act['name'] 
+                                                 and 'feed' not in act['name']]},
+
+                {('market for mandarin', 'GLO'): 
+                    [act['code'] for act in ei36 if 'market for mandarin' in act['name']]},
+
+                {('market for soybean', 'GLO'): 
+                    [act['code'] for act in ei36 if 'market for soybean' in act['name'] 
+                                         and all([_ not in act['name'] for _ in ['meal','beverage','seed','feed','oil']] )]},
             ]
-        }
 
-        bw.Migration("ecoinvent36-change-names").write(
-            ecoinvent36_change_names_data,
-            description="Change names of some activities"
-        )
-        co.migrate('ecoinvent36-change-names')
-        co.match_database('ecoinvent 3.6 cutoff', fields=('name','reference product', 'unit','location','categories'))
-
-
-        ### 4. Define a migration for rice production and specific locations
-        #########
-        # These locations have only non-basmati rice production
-        ecoinvent36_rice_production_data = {
-            'fields': ['name', 'location'],
-            'data': [
-                (
-                    ['rice production', 'US'],
-                    {
-                        'name': 'rice production, non-basmati',
-                        'reference product': 'rice, non-basmati'
-                    }
-                ),
-                (
-                    ['rice production', 'CN'],
-                    {
-                        'name': 'rice production, non-basmati',
-                        'reference product': 'rice, non-basmati'
-                    }
-                ),
-            ]
-        }
-
-        bw.Migration("ecoinvent36-rice-production").write(
-            ecoinvent36_rice_production_data,
-            description="Change names of some activities"
-        )
-        co.migrate("ecoinvent36-rice-production")
-        co.match_database('ecoinvent 3.6 cutoff', fields=('name','reference product', 'unit','location','categories'))
-
-
-        ### 5. Manually choose which ecoinvent 3.6 exchanges should be taken for each unlinked exchange
-        #########
-        # The rest of the unlinked exchanges are not uniquely defined in ecoinvent 3.6 -> 1-to-multiple mapping.
-        # For example 'rice production' is now divided into basmati and non-basmati rice. 
-        # Hence, we split them based on their shares in the production volumes.
-        ei36 = bw.Database('ecoinvent 3.6 cutoff')
-        mapping = [
-            {('market for rice', 'GLO'): 
-                [act['code'] for act in ei36 if  'market for rice' in act['name'] 
-                                             and act['location']=='GLO'
-                                             and 'seed' not in act['name']]},
-            
-            {('rice production', 'RoW'): 
-                [act['code'] for act in ei36 if  'rice production' in act['name'] 
-                                             and act['location']=='RoW'
-                                             and 'straw' not in act['reference product']]},
-            
-            {('rice production', 'IN'): 
-                [act['code'] for act in ei36 if  'rice production' in act['name'] 
-                                             and act['location']=='IN'
-                                             and 'straw' not in act['reference product']]},
-            
-            {('market for wheat grain', 'GLO'): 
-                [act['code'] for act in ei36 if  'market for wheat grain' in act['name'] 
-                                             and 'feed' not in act['name']]},
-            
-            {('market for maize grain', 'GLO'): 
-                [act['code'] for act in ei36 if  'market for maize grain' in act['name'] 
-                                             and 'feed' not in act['name']]},
-            
-            {('market for mandarin', 'GLO'): 
-                [act['code'] for act in ei36 if 'market for mandarin' in act['name']]},
-            
-            {('market for soybean', 'GLO'): 
-                [act['code'] for act in ei36 if 'market for soybean' in act['name'] 
-                                     and all([_ not in act['name'] for _ in ['meal','beverage','seed','feed','oil']] )]},
-        ]
-
-        co = modify_exchanges(co, mapping, 'ecoinvent 3.6 cutoff')
+            co = modify_exchanges(co, mapping, ei_name)
         co.statistics()
         co.write_database()
         # Give the required name to the consumption database
@@ -546,7 +579,13 @@ def import_consumption_db(co_path, habe_path, exclude_dbs=[], co_name=CONSUMPTIO
 
 
 
-def add_consumption_activities(co_name, habe_path, habe_year='091011', option='aggregated'):
+def add_consumption_activities(
+    co_name, 
+    habe_path, 
+    habe_year='091011', 
+    option='aggregated',
+    write_dir="write_files",
+):
 
     ### 1. Extract total demand from HABE
     #########
@@ -589,7 +628,8 @@ def add_consumption_activities(co_name, habe_path, habe_year='091011', option='a
     total_consumption['n_people']     = meta.loc['HABE091011_Personen']['n_rows']
                 
     # Save total demand
-    path_demand = 'write_files/habe_totaldemands.xlsx'
+    write_dir = Path(write_dir)
+    path_demand = write_dir / "habe_totaldemands.xlsx"
     total_consumption.to_excel(path_demand)
 
 
