@@ -11,9 +11,9 @@ import string
 from utils_allocation import *
 from utils_consumption_db import *
 
-#################
-### Ecoinvent ###
-#################
+# ################
+# ## Ecoinvent ###
+# ################
 
 def import_ecoinvent(ei_path, ei_name):
     if ei_name in bw.databases:
@@ -31,12 +31,12 @@ def create_ecoinvent_33_project(ei33_path, ei33_name="ecoinvent 3.3 cutoff" ):
     bw.bw2setup()
     import_ecoinvent(ei33_path, ei33_name)
     bw.projects.set_current(current_project) # Switch back
-    
 
 
-################
-### Exiobase ###
-################
+
+# ###############
+# ## Exiobase ###
+# ###############
 
 def import_exiobase_22(ex22_path, ex22_name='EXIOBASE 2.2'):
     from bw2io.importers.exiobase2 import Exiobase22Importer
@@ -49,9 +49,9 @@ def import_exiobase_22(ex22_path, ex22_name='EXIOBASE 2.2'):
 
 
 
-##################
-### Agribalyse ###
-##################
+# #################
+# ## Agribalyse ###
+# #################
 
 def import_agribalyse12(ag12_path, ei_name, ag12_name='Agribalyse 1.2'):
     '''
@@ -748,6 +748,9 @@ def add_consumptionn_sectors(co_name):
     Add consumption sectors as separate activities in the consumption database
     '''
     co = bw.Database(co_name)
+    demand_act = co.search("average consumption")[0]
+    print(demand_act)
+    
     cat_option = 'category_coarse'
 
     cat_unique = []
