@@ -465,7 +465,7 @@ def update_all_db(df):
     db_old_list = ['Agribalyse 1.2', 
                    'ecoinvent 3.3 cutoff']
     db_new_list = ['Agribalyse 1.3 - ecoinvent 3.6 cutoff',
-                  'ecoinvent 3.6 cutoff']
+                  'ecoinvent 3.3 cutoff']
     
     assert len(db_old_list) == len(db_new_list)
     

@@ -583,7 +583,7 @@ def add_consumption_activities(
     co_name, 
     habe_path, 
     habe_year='091011', 
-    option='aggregated',
+    option='disaggregated',
     write_dir="write_files",
 ):
 
@@ -663,7 +663,7 @@ def add_consumption_activities(
     elif option == 'disaggregated':
         path = 'data/habe20092011_hh_prepared_imputed.csv'
         df = pd.read_csv(path, low_memory=False)
-        number_households = df.shape[0]
+        n_households = df.shape[0]
         df = df.drop('haushaltid', axis=1).sum()
         df = df.reset_index()
         df.columns = ['code', 'amount']
