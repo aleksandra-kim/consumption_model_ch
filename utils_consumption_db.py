@@ -238,7 +238,7 @@ def append_one_exchange(df, df_ind_j, ConversionDem2FU, exclude_dbs=[]):
                      * df_ind_j['CFL Act ' + str(k)] \
                      * ConversionDem2FU
 
-    if db_name == 'ecoinvent 3.3 cutoff':
+    if db_name == 'ecoinvent 3.3 cutoff' and 'ecoinvent 3.3 cutoff' not in bw.databases:
         current_project = deepcopy(bw.projects.current)
         bw.projects.set_current('ecoinvent 3.3 cutoff') # Temporarily switch to ecoinvent 3.3 project
         act_bw = bw.get_activity(input_act_db_code_tuple)
@@ -246,7 +246,7 @@ def append_one_exchange(df, df_ind_j, ConversionDem2FU, exclude_dbs=[]):
         input_act_values_dict = create_input_act_dict(act_bw, input_act_amount)
     else:
         try:
-            # Find activity in the ecoinvent 3.3 cutoff using bw functionality
+            # Find activity using bw functionality
             act_bw = bw.get_activity(input_act_db_code_tuple)
             input_act_values_dict = create_input_act_dict(act_bw, input_act_amount)
         except:
@@ -366,8 +366,11 @@ def create_input_act_dict(act_bw, input_act_amount):
         'database': act_bw['database'], 
         # We do not expect type biosphere, but assign it via ACTIVITY_TYPE_DICT anyway 
         # to be sure that we don't encounter them.
-        'type': ACTIVITY_TYPE_DICT[act_bw['type']],
     }
+    try:
+        input_act_values_dict['type'] = ACTIVITY_TYPE_DICT[act_bw['type']]
+    except:
+        input_act_values_dict['type'] = ACTIVITY_TYPE_DICT['process'] # TODO not great code, but exiobase 2.2 activities don't have a type
     try:
         input_act_values_dict['reference product'] = act_bw['reference product']
     except:
@@ -458,18 +461,16 @@ def replace_one_db(df, db_old_name, db_new_name):
     return df_updated
 
 
-def update_all_db(df):
+def update_all_db(df, update_ecoinvent=True, update_agribalyse=True):
     '''
     Update all databases in the consumption database
     '''
-    db_old_list = ['Agribalyse 1.2', 
-                   'ecoinvent 3.3 cutoff']
-    db_new_list = ['Agribalyse 1.3 - ecoinvent 3.6 cutoff',
-                  'ecoinvent 3.3 cutoff']
-    
-    assert len(db_old_list) == len(db_new_list)
-    
-    for i in range(len(db_old_list)):
-        df = replace_one_db(df, db_old_list[i], db_new_list[i])
+    if update_ecoinvent:
+        df = replace_one_db(df, 'ecoinvent 3.3 cutoff', 'ecoinvent 3.6 cutoff')
+        ei_name = 'ecoinvent 3.6 cutoff'
+    else:
+        ei_name = 'ecoinvent 3.3 cutoff'
+    if update_agribalyse:
+        df = replace_one_db(df, 'Agribalyse 1.2',  'Agribalyse 1.3 - {}'.format(ei_name))
         
     return df
