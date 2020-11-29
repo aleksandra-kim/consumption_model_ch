@@ -429,6 +429,7 @@ def import_consumption_db(
         # Parse Andi's excel file
         act_indices = df_raw.index[df_raw['ConversionDem2FU'].notna()].tolist() # indices of all activities
         exclude_dbs = [edb.lower() for edb in exclude_dbs]
+        print("--> Creating consumption_db.xlsx")
         for ind in act_indices:
             # For each row
             df_ind = df_raw.iloc[ind]
@@ -455,12 +456,19 @@ def import_consumption_db(
         co.match_database(ei_name, fields=('name','reference product', 'unit','location','categories'))
 
         ex_name = 'EXIOBASE 2.2'
-        if ex_name.lower() not in exclude_dbs:
+        if ex_name.lower() not in exclude_dbs and ex_name in bw.databases:
+            print("--> Linking to {}".format(ex_name))
             co.match_database(ex_name, fields=('name','reference product', 'unit','location','categories'))
 
-        ag_name = 'Agribalyse 1.3 - ' + ei_name
-        if ag_name.lower() not in exclude_dbs:
+        ag_name = 'Agribalyse 1.3 - {}'.format(ei_name)
+        if ag_name.lower() not in exclude_dbs and ag_name in bw.databases:
+            print("-->Linking to {}".format(ag_name))
             co.match_database(ag_name, fields=('name','unit','location'))
+
+        ag12_name = 'Agribalyse 1.2 - {}'.format(ei_name)
+        if ag12_name.lower() not in exclude_dbs and ag12_name in bw.databases:
+            print("-->Linking to {}".format(ag12_name))
+            co.match_database(ag12_name, fields=('name', 'unit', 'location'))
 
         if "3.5" in ei_name or "3.6" in ei_name:
             print("Migration for 'steam production in chemical industry' and 'market for green bell pepper'")
@@ -470,7 +478,7 @@ def import_consumption_db(
                 'fields': ['name', ],
                 'data': [
                     (
-                        ['steam production in chemical industry'], 
+                        ['steam production in chemical industry'],
                         {
                             'name': 'steam production, in chemical industry',
                             'reference product': 'steam, in chemical industry',
@@ -494,11 +502,9 @@ def import_consumption_db(
             )
             co.migrate('ecoinvent-35-36-change-names')
             co.match_database(ei_name, fields=('name','reference product', 'unit','location','categories'))
-            
-        if "3.6" in ei_name:
-            print("Linking to ecoinvent 3.6")
-            
 
+        if "3.6" in ei_name:
+            print("--> Linking to ecoinvent 3.6")
 
             ### 4. Define a migration for rice production and specific locations
             #########
@@ -534,48 +540,51 @@ def import_consumption_db(
             ### 5. Manually choose which ecoinvent 3.6 exchanges should be taken for each unlinked exchange
             #########
             # The rest of the unlinked exchanges are not uniquely defined in ecoinvent 3.6 -> 1-to-multiple mapping.
-            # For example 'rice production' is now divided into basmati and non-basmati rice. 
+            # For example 'rice production' is now divided into basmati and non-basmati rice.
             # Hence, we split them based on their shares in the production volumes.
             ei36 = bw.Database(ei_name)
             mapping = [
-                {('market for rice', 'GLO'): 
-                    [act['code'] for act in ei36 if  'market for rice' in act['name'] 
+                {('market for rice', 'GLO'):
+                    [act['code'] for act in ei36 if  'market for rice' in act['name']
                                                  and act['location']=='GLO'
                                                  and 'seed' not in act['name']]},
 
-                {('rice production', 'RoW'): 
-                    [act['code'] for act in ei36 if  'rice production' in act['name'] 
+                {('rice production', 'RoW'):
+                    [act['code'] for act in ei36 if  'rice production' in act['name']
                                                  and act['location']=='RoW'
                                                  and 'straw' not in act['reference product']]},
 
-                {('rice production', 'IN'): 
-                    [act['code'] for act in ei36 if  'rice production' in act['name'] 
+                {('rice production', 'IN'):
+                    [act['code'] for act in ei36 if  'rice production' in act['name']
                                                  and act['location']=='IN'
                                                  and 'straw' not in act['reference product']]},
 
-                {('market for wheat grain', 'GLO'): 
-                    [act['code'] for act in ei36 if  'market for wheat grain' in act['name'] 
+                {('market for wheat grain', 'GLO'):
+                    [act['code'] for act in ei36 if  'market for wheat grain' in act['name']
                                                  and 'feed' not in act['name']]},
 
-                {('market for maize grain', 'GLO'): 
-                    [act['code'] for act in ei36 if  'market for maize grain' in act['name'] 
+                {('market for maize grain', 'GLO'):
+                    [act['code'] for act in ei36 if  'market for maize grain' in act['name']
                                                  and 'feed' not in act['name']]},
 
-                {('market for mandarin', 'GLO'): 
+                {('market for mandarin', 'GLO'):
                     [act['code'] for act in ei36 if 'market for mandarin' in act['name']]},
 
-                {('market for soybean', 'GLO'): 
-                    [act['code'] for act in ei36 if 'market for soybean' in act['name'] 
+                {('market for soybean', 'GLO'):
+                    [act['code'] for act in ei36 if 'market for soybean' in act['name']
                                          and all([_ not in act['name'] for _ in ['meal','beverage','seed','feed','oil']] )]},
             ]
 
             co = modify_exchanges(co, mapping, ei_name)
         co.statistics()
-        co.write_database()
-        # Give the required name to the consumption database
-        if co_name != CONSUMPTION_DB_NAME:
-            co_diff_name = bw.Database(CONSUMPTION_DB_NAME)
-            co_diff_name.rename(co_name)
+        if len(list(co.unlinked)) == 0:
+            co.write_database()
+        else:
+            print("Some exchanges are still unlinked")
+        # # Give the required name to the consumption database
+        # if co_name != CONSUMPTION_DB_NAME:
+        #     co_diff_name = bw.Database(CONSUMPTION_DB_NAME)
+        #     co_diff_name.rename(co_name)
 
 
 
@@ -583,7 +592,7 @@ def add_consumption_activities(
     co_name, 
     habe_path, 
     habe_year='091011', 
-    option='aggregated',
+    option='disaggregated',
     write_dir="write_files",
 ):
 
@@ -640,6 +649,7 @@ def add_consumption_activities(
     # Excel file `habe_totaldemands.xlsx` contains sums of all private households in Switzerland for all categories of the HBS. 
     # Units are the same as in the HBS (please refer to the SI-excel of Andi's ES&T-paper in order to translate the codenames). 
     # The attached vector is in "per month" quantities.
+
     ### OPTION 2 disaggregated. Andi's total demands from his Swiss consumption model
     # Excel file `heia2_totaldemands.xlsx` contains sums of all private households in Switzerland for all categories of the HBS. 
     # Please note that the units are basically the same as in the HBS (please refer to the SI-excel of Andi's ES&T-paper in 
@@ -656,14 +666,14 @@ def add_consumption_activities(
         df.columns = ['code', 'amount']
         df.set_index('code', inplace=True)
         n_households = int(df.loc['n_households', 'amount'])
-        n_people     = int(df.loc['n_people', 'amount'])
+        # n_people     = int(df.loc['n_people', 'amount'])
         df = df.drop(['n_households', 'n_people'])
         df = df.reset_index()
         
     elif option == 'disaggregated':
         path = 'data/habe20092011_hh_prepared_imputed.csv'
         df = pd.read_csv(path, low_memory=False)
-        number_households = df.shape[0]
+        n_households = df.shape[0]
         df = df.drop('haushaltid', axis=1).sum()
         df = df.reset_index()
         df.columns = ['code', 'amount']
@@ -686,9 +696,12 @@ def add_consumption_activities(
     unlinked_codes = []
     for i in range(len(df)):
         code = df.loc[i]['code']
+        factor = 1
+        # if "mx" in code:
+        #     factor = 12 # TODO?? divide by number of months
         if code in codes:
             consumption_all.new_exchange(input  = (co.name, code), 
-                                         amount = df.loc[i]['amount'], # TODO?? divide by number of months
+                                         amount = df.loc[i]['amount'] / factor,
                                          type   = 'technosphere').save()
         else:
             unlinked_codes.append(code)
@@ -742,15 +755,17 @@ def add_consumption_categories(co_name, co_path):
                 act.save()
             except:
                 pass
+        if act['name'] == "Desktop computers" or act['name'] == "Portable computers" or act['name'] == "Printers (incl. multifunctional printers)":
+            act["category_coarse"] = "Durable goods"
+            act.save()
 
-def add_consumptionn_sectors(co_name):
+def add_consumption_sectors(co_name):
     '''
     Add consumption sectors as separate activities in the consumption database
     '''
     co = bw.Database(co_name)
-    demand_act = co.search("average consumption")[0]
-    print(demand_act)
-    
+    demand_act = co.search("ch hh average consumption")[0]
+
     cat_option = 'category_coarse'
 
     cat_unique = []
@@ -782,7 +797,7 @@ def add_consumptionn_sectors(co_name):
                     excs_input_ag.append(exc.input)
                 elif 'EXIOBASE' in exc.input['database']:
                     excs_input_ex.append(exc.input)
-                elif 'ecoinvent 3.6 cutoff' == exc.input['database']:
+                elif 'ecoinvent' in exc.input['database']:
                     excs_input_ec.append(exc.input)
                     
         dict_[cat_of_interest] = dict(
@@ -796,21 +811,21 @@ def add_consumptionn_sectors(co_name):
         # Create new bw activity with a specific name
         try: co.get(cat_of_interest).delete()
         except: pass
-        new_act = co.new_activity(cat_of_interest, 
-                                  name=cat_of_interest, 
-                                  location='CH', 
+        new_act = co.new_activity(cat_of_interest,
+                                  name="{} sector".format(cat_of_interest),
+                                  location='CH',
                                   unit='1 month of consumption',
                                   comment='Average consumption of one household',
                                  )
         new_act.save()
-        
+
         # Add production exchange
         new_act.new_exchange(
             input = (new_act['database'], new_act['code']),
             amount = 1,
             type = 'production'
         ).save()
-        
+
         for exc in demand_act.exchanges():
             if exc.input.get('category_coarse')==cat_of_interest:
                 new_act.new_exchange(
