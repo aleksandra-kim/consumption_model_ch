@@ -4,6 +4,9 @@ from utils_exiobase import exiobaseLCA
 
 
 if __name__ == "__main__":
+    # copies “exiobase_industry_workaround” project into “exiobase_reproduce_results”, and imports ecoinvent 3.3,
+    # agriablyse 1.2, consumption database into it. This is Andi’s version except for it doesn’t have heia database.
+    # It works quickly, so one can do a quick contribution analysis here.
     if "exiobase_reproduce_results" not in bw.projects:
         bw.projects.set_current("exiobase_industry_workaround") # make sure this project only has biosphere3 and EXIOBASE 2.2
         # projects to reproduce Andi's LCA results with older databases: ecoinvent 3.3, exiobase 2.2, agribalyse 1.2
@@ -27,10 +30,9 @@ if __name__ == "__main__":
     import_ecoinvent(ei33_path, ei33_name)
     import_agribalyse12(ag12_path, ei33_name)
     co_name = "CH consumption 1.0"
-    # if co_name in bw.databases:
-    #     del bw.databases[co_name]
+    # del bw.databases[co_name]
     import_consumption_db(co_path, habe_path, exclude_dbs=['heia'], ei_name=ei33_name)
-    # add_consumption_activities(co_name, habe_path)
+    add_consumption_activities(co_name, habe_path)
     add_consumption_categories(co_name, co_path)
     add_consumption_sectors(co_name)
 
@@ -44,15 +46,3 @@ if __name__ == "__main__":
     lca.lci()
     lca.lcia()
     print("Andi's result: {}".format(lca.score))
-
-    # project = "rebound"
-    # fp_exiobase_scores_industry_workaround = Path("write_files") / "exiobase_lca.pickle"
-    # with open(fp_exiobase_scores_industry_workaround, "rb") as f:
-    #     exiobase_scores_industry_workaround = pickle.load(f)
-    # exio_lca = exiobaseLCA(
-    #     project,
-    #     demand,
-    #     exiobase_scores_industry_workaround,
-    # )
-    # scores = exio_lca.compute_total_scores()
-    # print("Our scores: {}".format(scores))
