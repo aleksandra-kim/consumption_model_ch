@@ -335,7 +335,19 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
                     changed.append([i,j])
         assert len(changed)==319
         
-        ### 6. Scale technosphere such that production exchanges are all 1
+        ### 6. Make sure scale of lognormal is nonzero
+        #########
+        changed = []
+        for i,act in enumerate(agg.data):
+            excs = act.get('exchanges', [])
+            for j,exc in enumerate(excs):
+                if exc.get('uncertainty type', False) == sa.LognormalUncertainty.id and \
+                exc.get('scale')==0:
+                    exc.update(scale=1)
+                    changed.append([i,j])
+        assert len(changed)==6
+                
+        ### 7. Scale technosphere such that production exchanges are all 1
         acts_to_scale = []
         for act in agg.data:
             excs = act.get('exchanges', [])
@@ -353,7 +365,7 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
                     exc.update(amount=current_amt/production_amt)
 
 
-        ### 7. Remove repeating activities
+        ### 8. Remove repeating activities
         #########
         a = 'ammonium nitrate phosphate production'
         b = 'diammonium phosphate production'
@@ -385,7 +397,7 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
                          'database': 'Agribalyse 1.3 - ecoinvent 3.6 cutoff'})
 
 
-        ### 7. Write database
+        ### 9. Write database
         #########
         agg.statistics()
         agg.write_database()
