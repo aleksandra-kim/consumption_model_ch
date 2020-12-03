@@ -343,7 +343,8 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
             for j,exc in enumerate(excs):
                 if exc.get('uncertainty type', False) == sa.LognormalUncertainty.id and \
                 exc.get('scale')==0:
-                    exc.update(scale=1)
+                    exc.update({"uncertainty type": 0, "loc": np.nan, "scale": np.nan})
+                    print(exc)
                     changed.append([i,j])
         assert len(changed)==6
                 
