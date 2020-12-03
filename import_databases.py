@@ -331,6 +331,9 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
             for j,exc in enumerate(excs):
                 if exc.get('uncertainty type', False) == sa.LognormalUncertainty.id and \
                 np.allclose(exc.get('amount'), exc.get('loc')):
+                    # loc chosen such that amount is the mean of the specified distribution
+                    # exc.update(loc=np.log(exc['amount'])-(exc['scale']**2)/2)
+                    # loc chosen such that amount is the median of the specified distribution, same as majority in ecoinvent
                     exc.update(loc=np.log(exc['amount']))
                     changed.append([i,j])
         assert len(changed)==319
@@ -344,26 +347,26 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
                 if exc.get('uncertainty type', False) == sa.LognormalUncertainty.id and \
                 exc.get('scale')==0:
                     exc.update({"uncertainty type": 0, "loc": np.nan, "scale": np.nan})
-                    print(exc)
                     changed.append([i,j])
         assert len(changed)==6
                 
-        ### 7. Scale technosphere such that production exchanges are all 1
-        acts_to_scale = []
-        for act in agg.data:
-            excs = act.get('exchanges', [])
-            for exc in excs:
-                if exc.get('type') == 'production' and exc.get('amount')!=1:
-                    acts_to_scale.append((act,exc.get('amount')))
-                    
-        for act,production_amt in acts_to_scale:
-            excs = act.get('exchanges', [])
-            for exc in excs:
-                if exc.get('type') == 'production':
-                    exc.update(amount=1)
-                else:
-                    current_amt = exc.get('amount')
-                    exc.update(amount=current_amt/production_amt)
+        # ### 7. Scale technosphere such that production exchanges are all 1
+        # # Commented out because incorrect, need to scale uncertainties in the exchanges as well then!
+        # acts_to_scale = []
+        # for act in agg.data:
+        #     excs = act.get('exchanges', [])
+        #     for exc in excs:
+        #         if exc.get('type') == 'production' and exc.get('amount')!=1:
+        #             acts_to_scale.append((act,exc.get('amount')))
+        #
+        # for act,production_amt in acts_to_scale:
+        #     excs = act.get('exchanges', [])
+        #     for exc in excs:
+        #         if exc.get('type') == 'production':
+        #             exc.update(amount=1)
+        #         else:
+        #             current_amt = exc.get('amount')
+        #             exc.update(amount=current_amt/production_amt)
 
 
         ### 8. Remove repeating activities
