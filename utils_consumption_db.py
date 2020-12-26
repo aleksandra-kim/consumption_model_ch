@@ -51,11 +51,11 @@ UNIT_DICT = {
 # ## 2.Convert data to brightway database format -> all functions ##
 # ##################################################################
 
-def complete_columns(df):
+def complete_columns(df_raw):
     '''
     Add missing On columns
     ''' 
-    
+    df = deepcopy(df_raw)
     column_names = list(df.columns)
     indices = [i for i,el in enumerate(column_names)  if 'Activity' in el]
     column_names_complete = copy(column_names)
@@ -461,13 +461,16 @@ def replace_one_db(df, db_old_name, db_new_name):
     return df_updated
 
 
-def update_all_db(df, update_ecoinvent=True, update_agribalyse=True):
+def update_all_db(df, update_ecoinvent=True, update_agribalyse=True, use_ecoinvent_371=False):
     '''
     Update all databases in the consumption database
     '''
     if update_ecoinvent:
-        df = replace_one_db(df, 'ecoinvent 3.3 cutoff', 'ecoinvent 3.6 cutoff')
-        ei_name = 'ecoinvent 3.6 cutoff'
+        if use_ecoinvent_371:
+            ei_name = 'ecoinvent 3.7.1 cutoff'
+        else:
+            ei_name = 'ecoinvent 3.6 cutoff'
+        df = replace_one_db(df, 'ecoinvent 3.3 cutoff', ei_name)
     else:
         ei_name = 'ecoinvent 3.3 cutoff'
     if update_agribalyse:
