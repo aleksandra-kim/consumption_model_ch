@@ -213,7 +213,7 @@ def is_pattern_correct(df_ind_j):
         return 0
 
 
-def append_one_exchange(df, df_ind_j, ConversionDem2FU, exclude_dbs=[]):
+def append_one_exchange(df, df_ind_j, ConversionDem2FU, exclude_dbs=[], replace_agribalyse_with_ei=True):
     '''
     Extract information about one input activity, eg name, unit, location, etc and append it to the dataframe df.
     '''    
@@ -251,6 +251,8 @@ def append_one_exchange(df, df_ind_j, ConversionDem2FU, exclude_dbs=[]):
             input_act_values_dict = create_input_act_dict(act_bw, input_act_amount)
         except:
             # If bw.get_activity does not work for whichever reason, fill info manually
+            if replace_agribalyse_with_ei and "agribalyse" in db_name.lower():
+                db_name = CONSUMPTION_DB_NAME
             input_act_values_dict = bw_get_activity_info_manually(input_act_str, db_name, input_act_amount)
         
     # Add exchange to the dataframe with database in brightway format
@@ -306,7 +308,7 @@ def append_one_exchange(df, df_ind_j, ConversionDem2FU, exclude_dbs=[]):
 #     return df
 
 
-def append_exchanges(df, df_ind, df_act, exclude_dbs=[]):
+def append_exchanges(df, df_ind, df_act, exclude_dbs=[], replace_agribalyse_with_ei=True):
     '''
     Add all exchanges (input activities) from the row df_ind to consumption database dataframe.
     '''
@@ -348,7 +350,13 @@ def append_exchanges(df, df_ind, df_act, exclude_dbs=[]):
                 end = start + N_COLUMNS_INPUT_ACTIVITY
                 df_ind_j = df_ind[start:end]
         
-        df = append_one_exchange(df, df_ind_j, ConversionDem2FU, exclude_dbs=exclude_dbs)
+        df = append_one_exchange(
+            df,
+            df_ind_j,
+            ConversionDem2FU,
+            exclude_dbs=exclude_dbs,
+            replace_agribalyse_with_ei=replace_agribalyse_with_ei
+        )
         
     return df
 

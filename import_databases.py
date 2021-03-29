@@ -6,6 +6,7 @@ import os, json
 from pathlib import Path
 import re
 import string
+# import bw2io
 
 # Local files
 from utils_allocation import *
@@ -400,7 +401,6 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
             print("Some exchanges are still unlinked")
             print(list(agg.unlinked))
 
-
 def import_consumption_db(
     co_path, 
     habe_path, 
@@ -409,6 +409,7 @@ def import_consumption_db(
     habe_year='091011',
     ei_name="ecoinvent 3.6 cutoff",
     write_dir="write_files",
+    replace_agribalyse_with_ei=True,
 ):
     '''
     - Raw data: Excel sheet can be obtained from https://doi.org/10.1021/acs.est.8b01452
@@ -447,17 +448,29 @@ def import_consumption_db(
             df_bw, df_act = append_activity(df_bw, df_ind[:N_ACT_RELEVANT],
                                             code_unit)  # only pass columns relevant to this function
             # Add exchanges
-            df_bw = append_exchanges(df_bw, df_ind, df_act, exclude_dbs=exclude_dbs)
+            df_bw = append_exchanges(
+                df_bw,
+                df_ind,
+                df_act,
+                exclude_dbs=exclude_dbs,
+                replace_agribalyse_with_ei=replace_agribalyse_with_ei
+            )
         df_bw.columns = list(string.ascii_uppercase[:len(df_bw.columns)])
         # Update to relevant databases and save excel file
         if "3.7.1" in ei_name:
             use_ecoinvent_371 = True
         else:
             use_ecoinvent_371 = False
-        df_bw = update_all_db(df_bw, use_ecoinvent_371=use_ecoinvent_371)
+
+        ag_name = 'Agribalyse 1.3 - {}'.format(ei_name)
+        if replace_agribalyse_with_ei:
+            df_agribalyse_ei = pd.read_excel("data/agribalyse_replaced_with_ecoinvent.xlsx")
+            df_bw = df_bw.append(df_agribalyse_ei, ignore_index=True)
+
         write_dir = Path(write_dir)
         write_dir.mkdir(parents=True, exist_ok=True)
         path_new_db = write_dir / 'consumption_db.xlsx'
+        df_bw = update_all_db(df_bw, use_ecoinvent_371=use_ecoinvent_371)
         df_bw.to_excel(path_new_db, index=False, header=False)
 
         ### 2. Link to other databases
@@ -466,6 +479,7 @@ def import_consumption_db(
 
         co = bw.ExcelImporter(path_new_db)
         co.apply_strategies()
+        co.match_database(fields=('name', 'unit', 'location', 'categories'))
         co.match_database(ei_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
 
         ex_name = 'EXIOBASE 2.2'
@@ -474,7 +488,7 @@ def import_consumption_db(
             co.match_database(ex_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
 
         ag_name = 'Agribalyse 1.3 - {}'.format(ei_name)
-        if ag_name.lower() not in exclude_dbs and ag_name in bw.databases:
+        if ag_name.lower() not in exclude_dbs and ag_name in bw.databases and not replace_agribalyse_with_ei:
             print("-->Linking to {}".format(ag_name))
             co.match_database(ag_name, fields=('name', 'unit', 'location'))
 
@@ -482,6 +496,8 @@ def import_consumption_db(
         if ag12_name.lower() not in exclude_dbs and ag12_name in bw.databases:
             print("-->Linking to {}".format(ag12_name))
             co.match_database(ag12_name, fields=('name', 'unit', 'location'))
+
+
 
         ### 3. Define a migration for particular activities that can only be hardcoded
         #########
@@ -591,10 +607,10 @@ def import_consumption_db(
             co.write_database()
         else:
             print("Some exchanges are still unlinked")
-        # # Give the required name to the consumption database
-        # if co_name != CONSUMPTION_DB_NAME:
-        #     co_diff_name = bw.Database(CONSUMPTION_DB_NAME)
-        #     co_diff_name.rename(co_name)
+        # Give the required name to the consumption database
+        if co_name != CONSUMPTION_DB_NAME:
+            co_diff_name = bw.Database(CONSUMPTION_DB_NAME)
+            co_diff_name.rename(co_name)
 
 
 
@@ -758,6 +774,7 @@ def add_consumption_categories(co_name, co_path):
     }
     for act in co:    
         code = re.sub(r'[a-z]+', '', act['code'], re.I)[:max_code_len]
+
         for i in range(2,max_code_len+1):
             try:
                 category_name = 'category_' + category_names_dict[i]
