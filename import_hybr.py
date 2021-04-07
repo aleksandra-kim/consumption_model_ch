@@ -45,7 +45,7 @@ elif ei_option == "37":
 try:
     del bw.databases["Agribalyse 1.3 - {} - new biosphere".format(ei_name)]
     del bw.databases["Agribalyse 1.3 - {}".format(ei_name)]
-    del bw.databases["CH consumption 1.0"]
+    # del bw.databases["CH consumption 1.0"]
 except:
     pass
 
@@ -61,10 +61,10 @@ exclude_dbs = [
     "Agribalyse 1.3 - {}".format(ei_name),
     "Agribalyse 1.3 - {} - new biosphere".format(ei_name),
 ]
-import_consumption_db(co_path, habe_path, exclude_dbs=exclude_dbs, ei_name=ei_name,)
-add_consumption_activities(co_name, habe_path)
-add_consumption_categories(co_name, co_path)
-add_consumption_sectors(co_name)
+# import_consumption_db(co_path, habe_path, exclude_dbs=exclude_dbs, ei_name=ei_name,)
+# add_consumption_activities(co_name, habe_path)
+# add_consumption_categories(co_name, co_path)
+# add_consumption_sectors(co_name)
 
 co = bw.Database('CH consumption 1.0')
 demand_act = co.search('average consumption')[0]
