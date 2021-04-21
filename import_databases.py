@@ -47,7 +47,15 @@ def import_exiobase_22(ex22_path, ex22_name='EXIOBASE 2.2'):
         ex22 = Exiobase22Importer(ex22_path, ex22_name)
         ex22.apply_strategies()
         ex22.write_database()
-
+        
+def import_exiobase_3(ex3_path, ex3_name):
+    from bw2io.importers.exiobase3 import Exiobase3Importer
+    if ex3_name in bw.databases:
+        print("{} database already present!!! No import is needed".format(ex3_name))
+    else:
+        ex = Exiobase3Importer(ex3_path, ex3_name) # give path to IOT_year_pxp folder
+        ex.apply_strategies()
+        ex.write_database()
 
 
 # #################
@@ -161,126 +169,12 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
         #########
         #- Most of them are minor changes in names of activities and reference products
         #- Some activities contain `multiplier` field if the unit conversion is needed or reference products are not identical
-        agribalyse13_ecoinvent_names = {
-            'fields': ['name'],
-            'data': [
-                (
-                    ['extrusion production, plastic film'],
-                    {
-                        'name': 'extrusion, plastic film'
-                    }
-                ),
-                (
-                    ['extrusion production, plastic pipes'],
-                    {
-                        'name': 'extrusion, plastic pipes'
-                    }
-                ),
-                (
-                    ['blow moulding production'],
-                    {
-                        'name': 'blow moulding'
-                    }
-                ),
-                (
-                    ['calendering production, rigid sheets'],
-                    {
-                        'name': 'calendering, rigid sheets'
-                    }
-                ),
-                (
-                    ['steam production in chemical industry'],
-                    {
-                        'name': 'steam production, in chemical industry',
-                        'reference product': 'steam, in chemical industry',
-                        'unit': 'kilogram',
-                        'multiplier': 1/2.75, # change of units, see comment on this activity in ecoinvent
-                        # TODO does this multiplier also change uncertainty distribution??
-                    }
-                ),
-                (
-                    ['water production, completely softened, from decarbonised water, at user'],
-                    {
-                        'name': 'water production, completely softened',
-                        'reference product': 'water, completely softened'
-                    }
-                ),
-                (
-                    ['market for water, decarbonised, at user'],
-                    {
-                        'name': 'market for water, decarbonised',
-                        'reference product': 'water, decarbonised'
-                    }
-                ),
-                (
-                    ['textile production, jute'],
-                    {
-                        'name': 'textile production, jute, weaving'
-                    }
-                ),
-                (
-                    ['market for transport, freight, sea, transoceanic ship'],
-                    {
-                        'name': 'market for transport, freight, sea, container ship with reefer, cooling',
-                        'reference product': 'transport, freight, sea, container ship with reefer, cooling'
-                    }
-                ),
-                (
-                    ['transport, freight, sea, transoceanic ship'],
-                    {
-                        'name': 'transport, freight, sea, container ship with reefer, cooling',
-                        'reference product': 'transport, freight, sea, container ship with reefer, cooling'
-                    }
-                ),
-                (
-                    ['oxidation of manganese dioxide'],
-                    {
-                        'reference product': 'potassium permanganate',
-                        'multiplier': 90/1000 # change of reference product, see comment on this activity in ecoinvent
-                    }
-                ),
-                (
-                    ['irrigation'],
-                    {
-                        'name': 'market for irrigation',
-                    }
-                ),
-            ]
-        }
-
+        agribalyse13_ecoinvent_names = json.load(open("data/migrations/agribalyse-1.3.json"))
         bw.Migration("agribalyse13-ecoinvent-names").write(
             agribalyse13_ecoinvent_names,
             description="Change names of some activities"
         )
         ag13_ei.migrate('agribalyse13-ecoinvent-names')
-        ag13_ei.match_database(ei_name, fields=('reference product','location', 'unit', 'name'))
-
-
-        ### 3. Define migrations for market groups
-        #########
-        agribalyse13_ecoinvent_market_groups = {
-            'fields': ['name', 'location'],
-            'data': [
-                (
-                    ['market for electricity, low voltage', 'BR'],
-                    {
-                        'name': 'market group for electricity, low voltage'
-                    }
-                ),
-                (
-                    ['market for electricity, medium voltage', 'BR'],
-                    {
-                        'name': 'market group for electricity, medium voltage'
-                    }
-                ),
-            ]
-        }
-
-        bw.Migration("agribalyse13-ecoinvent-market-groups").write(
-            agribalyse13_ecoinvent_market_groups,
-            description="Change markets to market groups for Brazil"
-        )
-        ag13_ei.migrate('agribalyse13-ecoinvent-market-groups')
         ag13_ei.match_database(ei_name, fields=('reference product','location', 'unit', 'name'))
 
         ### 4. Allocate by production volume
@@ -328,10 +222,14 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
                     # b. loc chosen such that amount is the median of the specified distribution, same as majority in ecoinvent
                     exc.update(loc=np.log(exc['amount']))
                     changed.append([i,j])
+        print(len(changed))
         if "3.6" in ei_name:
             assert len(changed)==319
         elif "3.7" in ei_name:
-            assert len(changed)==1168
+            if "3.7.1" not in ei_name:
+                assert len(changed)==1168
+            else:
+                assert len(changed)==1013
 
         ### 6. Make sure scale of lognormal is nonzero
         #########
@@ -391,7 +289,6 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
                          'code': '6d61eb45c1d285073770aa839426d97c',
                          'database': ag13_ei_name})
 
-
         # ### 9. Write database
         # #########
         agg.statistics()
@@ -407,9 +304,10 @@ def import_consumption_db(
     exclude_dbs=[], 
     co_name=CONSUMPTION_DB_NAME, 
     habe_year='091011',
-    ei_name="ecoinvent 3.6 cutoff",
+    ei_name="ecoinvent 3.7.1 cutoff",
     write_dir="write_files",
     replace_agribalyse_with_ei=True,
+    ex_path=None,
 ):
     '''
     - Raw data: Excel sheet can be obtained from https://doi.org/10.1021/acs.est.8b01452
@@ -426,7 +324,9 @@ def import_consumption_db(
         # Make sure that 'ecoinvent 3.3 cutoff' project has been created
         if 'ecoinvent 3.3 cutoff' not in bw.projects:
             print(
-                'ecoinvent 3.3 cutoff project is needed for the import, please run `create_ecoinvent_33_project(path)`')
+                'ecoinvent 3.3 cutoff project is needed for the import, please run `create_ecoinvent_33_project(path)`'
+            )
+            return
         # Create dataframe that will be our consumption database after we add activities and exchanges from the raw file
         df_bw = create_df_bw(CONSUMPTION_DB_NAME)
         # Read data from Andi's consumption database
@@ -440,38 +340,38 @@ def import_consumption_db(
         act_indices = df.index[df['ConversionDem2FU'].notna()].tolist()  # indices of all activities
         exclude_dbs = [edb.lower() for edb in exclude_dbs]
         print("--> Creating consumption_db.xlsx")
-        for ind in act_indices:
-            # For each row
-            df_ind = df.iloc[ind]
-            df_ind = df_ind[df_ind.notna()]
-            # Add activity
-            df_bw, df_act = append_activity(df_bw, df_ind[:N_ACT_RELEVANT],
-                                            code_unit)  # only pass columns relevant to this function
-            # Add exchanges
-            df_bw = append_exchanges(
-                df_bw,
-                df_ind,
-                df_act,
-                exclude_dbs=exclude_dbs,
-                replace_agribalyse_with_ei=replace_agribalyse_with_ei
-            )
-        df_bw.columns = list(string.ascii_uppercase[:len(df_bw.columns)])
-        # Update to relevant databases and save excel file
-        if "3.7.1" in ei_name:
-            use_ecoinvent_371 = True
-        else:
-            use_ecoinvent_371 = False
+#         for ind in act_indices:
+#             # For each row
+#             df_ind = df.iloc[ind]
+#             df_ind = df_ind[df_ind.notna()]
+#             # Add activity
+#             df_bw, df_act = append_activity(df_bw, df_ind[:N_ACT_RELEVANT],
+#                                             code_unit)  # only pass columns relevant to this function
+#             # Add exchanges
+#             df_bw = append_exchanges(
+#                 df_bw,
+#                 df_ind,
+#                 df_act,
+#                 exclude_dbs=exclude_dbs,
+#                 replace_agribalyse_with_ei=replace_agribalyse_with_ei
+#             )
+#         df_bw.columns = list(string.ascii_uppercase[:len(df_bw.columns)])
+#         # Update to relevant databases and save excel file
+#         if "3.7.1" in ei_name:
+#             use_ecoinvent_371 = True
+#         else:
+#             use_ecoinvent_371 = False
 
-        ag_name = 'Agribalyse 1.3 - {}'.format(ei_name)
-        if replace_agribalyse_with_ei:
-            df_agribalyse_ei = pd.read_excel("data/agribalyse_replaced_with_ecoinvent.xlsx")
-            df_bw = df_bw.append(df_agribalyse_ei, ignore_index=True)
+#         ag_name = 'Agribalyse 1.3 - {}'.format(ei_name)
+#         if replace_agribalyse_with_ei:
+#             df_agribalyse_ei = pd.read_excel("data/agribalyse_replaced_with_ecoinvent.xlsx")
+#             df_bw = df_bw.append(df_agribalyse_ei, ignore_index=True)
 
         write_dir = Path(write_dir)
         write_dir.mkdir(parents=True, exist_ok=True)
         path_new_db = write_dir / 'consumption_db.xlsx'
-        df_bw = update_all_db(df_bw, use_ecoinvent_371=use_ecoinvent_371)
-        df_bw.to_excel(path_new_db, index=False, header=False)
+#         df_bw = update_all_db(df_bw, use_ecoinvent_371=use_ecoinvent_371)
+#         df_bw.to_excel(path_new_db, index=False, header=False)
 
         ### 2. Link to other databases
         #########
@@ -483,17 +383,20 @@ def import_consumption_db(
         co.match_database(ei_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
 
         ex_name = 'EXIOBASE 2.2'
-        if ex_name.lower() not in exclude_dbs and ex_name in bw.databases:
+        if ex_name not in exclude_dbs:
+            for db_name in bw.databases:
+                if "exiobase" in db_name.lower():
+                    ex_name = db_name
             print("--> Linking to {}".format(ex_name))
-            co.match_database(ex_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
+            co.match_database(ex_name, fields=('name', 'unit', 'location',))
 
         ag_name = 'Agribalyse 1.3 - {}'.format(ei_name)
-        if ag_name.lower() not in exclude_dbs and ag_name in bw.databases and not replace_agribalyse_with_ei:
+        if ag_name not in exclude_dbs and ag_name in bw.databases and not replace_agribalyse_with_ei:
             print("-->Linking to {}".format(ag_name))
             co.match_database(ag_name, fields=('name', 'unit', 'location'))
 
         ag12_name = 'Agribalyse 1.2 - {}'.format(ei_name)
-        if ag12_name.lower() not in exclude_dbs and ag12_name in bw.databases:
+        if ag12_name not in exclude_dbs and ag12_name in bw.databases:
             print("-->Linking to {}".format(ag12_name))
             co.match_database(ag12_name, fields=('name', 'unit', 'location'))
 
@@ -503,28 +406,7 @@ def import_consumption_db(
         #########
         if "3.5" in ei_name or "3.6" in ei_name or "3.7" in ei_name:
             print("Migration for 'steam production in chemical industry' and 'market for green bell pepper'")
-
-            # Only based on the `name` field
-            ecoinvent_35_36_37_change_names_data = {
-                'fields': ['name', ],
-                'data': [
-                    (
-                        ['steam production in chemical industry'],
-                        {
-                            'name': 'steam production, as energy carrier, in chemical industry',
-                            'reference product': 'heat, from steam, in chemical industry',
-                        }
-                    ),
-                    (
-                        ['market for green bell pepper'],
-                        {
-                            'name': 'market for bell pepper',
-                            'reference product': 'bell pepper',
-                        }
-                    ),
-                ]
-            }
-
+            ecoinvent_35_36_37_change_names_data = json.load(open("data/migrations/ecoinvent-3.5-3.6-3.7.1.json"))
             bw.Migration("ecoinvent-35-36-37-change-names").write(
                 ecoinvent_35_36_37_change_names_data,
                 description="Change names of some activities"
@@ -536,31 +418,12 @@ def import_consumption_db(
         #########
         # These locations have only non-basmati rice production
         if "3.6" in ei_name or "3.7" in ei_name:
-            ecoinvent_371_rice_nonbasmati = {
-                'fields': ['name', 'reference product', 'location'],
-                'data': [
-                    (
-                        ['rice production', 'rice', 'US'],
-                        {
-                            'name': 'rice production, non-basmati',
-                            'reference product': 'rice, non-basmati',
-                        }
-                    ),
-                    (
-                        ['rice production', 'rice', 'CN'],
-                        {
-                            'name': 'rice production, non-basmati',
-                            'reference product': 'rice, non-basmati',
-                        }
-                    ),
-                ]
-            }
-
-            bw.Migration("ecoinvent-371-rice-nonbasmati").write(
-                ecoinvent_371_rice_nonbasmati,
+            ecoinvent_36_371_rice_nonbasmati = json.load(open("data/migrations/ecoinvent-3.6-3.7.1.json"))
+            bw.Migration("ecoinvent-36-371-rice-nonbasmati").write(
+                ecoinvent_36_371_rice_nonbasmati,
                 description="Change names of some activities"
             )
-            co.migrate('ecoinvent-371-rice-nonbasmati')
+            co.migrate('ecoinvent-36-371-rice-nonbasmati')
             co.match_database(ei_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
 
         ### 5. Manually choose which ecoinvent exchanges should be taken for each unlinked exchange
@@ -600,11 +463,35 @@ def import_consumption_db(
                  [act['code'] for act in ei if 'market for soybean' in act['name']
                   and all([_ not in act['name'] for _ in ['meal', 'beverage', 'seed', 'feed', 'oil']])]},
         ]
+        
+         ### 4. Define migrations for exiobase
+        #########
+        if ex_name not in exclude_dbs:
+            # Rename RoW locations
+            exiobase_381_change_locations_data = json.load(open("data/migrations/exiobase-row-locations.json"))
+            bw.Migration("exiobase-381-change-locations").write(
+                exiobase_381_change_locations_data,
+                description="Change RoW locations in exiobase"
+            )
+            co.migrate('exiobase-381-change-locations')
+            if "3.8.1" in ex_name:
+                print("Migration for {}".format(ex_name))
+                # Only based on the `name` field
+                exiobase_381_change_names_data = json.load(open("data/migrations/exiobase-3.8.1.json"))
+                bw.Migration("exiobase-381-change-names").write(
+                    exiobase_381_change_names_data,
+                    description="Change names of some exiobase 3.8.1 activities"
+                )
+                co.migrate('exiobase-381-change-names')
+            co.match_database(ex_name, fields=('name', 'unit', 'location'))
+            co.statistics()
 
         co = modify_exchanges(co, mapping, ei_name)
         co.statistics()
         if len(list(co.unlinked)) == 0:
             co.write_database()
+            if ex_name not in exclude_dbs:
+                update_exiobase_amounts(ex_name, ex_path)
         else:
             print("Some exchanges are still unlinked")
         # Give the required name to the consumption database
@@ -612,8 +499,8 @@ def import_consumption_db(
             co_diff_name = bw.Database(CONSUMPTION_DB_NAME)
             co_diff_name.rename(co_name)
 
-
-
+            
+            
 def add_consumption_activities(
     co_name, 
     habe_path, 

@@ -1,0 +1,97 @@
+{
+    "fields": ["name"],
+    "data": [
+        [
+            ["extrusion production, plastic film"],
+            {
+                "name": "extrusion, plastic film"
+            }
+        ],
+        [
+            ["extrusion production, plastic pipes"],
+            {
+                "name": "extrusion, plastic pipes"
+            }
+        ],
+        [
+            ["blow moulding production"],
+            {
+                "name": "blow moulding"
+            }
+        ],
+        [
+            ["calendering production, rigid sheets"],
+            {
+                "name": "calendering, rigid sheets"
+            }
+        ],
+        [
+            ["steam production in chemical industry"],
+            {
+                "name": "steam production, in chemical industry",
+                "reference product": "steam, in chemical industry",
+                "unit": "kilogram",
+                "multiplier": 0.36363636363
+            }
+        ],
+        [
+            ["water production, completely softened, from decarbonised water, at user"],
+            {
+                "name": "water production, completely softened",
+                "reference product": "water, completely softened"
+            }
+        ],
+        [
+            ["market for water, decarbonised, at user"],
+            {
+                "name": "market for water, decarbonised",
+                "reference product": "water, decarbonised"
+            }
+        ],
+        [
+            ["textile production, jute"],
+            {
+                "name": "textile production, jute, weaving"
+            }
+        ],
+        [
+            ["market for transport, freight, sea, transoceanic ship"],
+            {
+                "name": "market for transport, freight, sea, container ship with reefer, cooling",
+                "reference product": "transport, freight, sea, container ship with reefer, cooling"
+            }
+        ],
+        [
+            ["transport, freight, sea, transoceanic ship"],
+            {
+                "name": "transport, freight, sea, container ship with reefer, cooling",
+                "reference product": "transport, freight, sea, container ship with reefer, cooling"
+            }
+        ],
+        [
+            ["oxidation of manganese dioxide"],
+            {
+                "reference product": "potassium permanganate",
+                "multiplier": 0.09
+            }
+        ],
+        [
+            ["irrigation"],
+            {
+                "name": "market for irrigation"
+            }
+        ],
+        [
+            ["market for electricity, low voltage", "BR"],
+            {
+                "name": "market group for electricity, low voltage"
+            }
+        ],
+        [
+            ["market for electricity, medium voltage", "BR"],
+            {
+                "name": "market group for electricity, medium voltage"
+            }
+        ]
+    ]
+}

@@ -5,7 +5,9 @@ from copy import copy, deepcopy
 import os, json
 import re
 import brightway2 as bw
-
+import country_converter as coco
+import warnings
+from pathlib import Path
 
 ###########################
 # ## 1. Define constants ###
@@ -30,7 +32,12 @@ EXC_COLUMNS_DICT = {
         'database': 'F', 
         'type': 'G', 
         'categories': 'H',
-        'comment': 'I',
+        'original_on': 'I',
+        'original_activity': 'J',
+        'original_db_act': 'K',
+        'original_cfl_act': 'L',
+        'original_amount': 'M',
+        'comment': 'N',
     }
 
 # Conversion from type in databases to type that should be in excel file to import a new database
@@ -135,13 +142,13 @@ def append_activity(df, df_ind, code_unit):
     act_unit = compute_act_unit(df_ind, code_unit)
     
     len_df = len(df)
-    
     act_data = [ ['Activity', act_name],
                  ['reference product',  act_name],
                  ['code', act_code],
                  ['location', 'CH'],
                  ['amount', 1],
-                 ['unit', act_unit] ]
+                 ['unit', act_unit],
+                 ['original_ConversionDem2FU', df_ind['ConversionDem2FU']]]
     
     df_act = pd.DataFrame( act_data, 
                            columns=list('AB'),
@@ -220,42 +227,54 @@ def append_one_exchange(df, df_ind_j, ConversionDem2FU, exclude_dbs=[], replace_
     # Extract the activity number
     k = int(''.join(c for c in df_ind_j.index[0] if c.isdigit()))
     # Extract information about activity and save it
-    input_act_str = df_ind_j['DB Act ' + str(k)]
-    input_act_db_code = df_ind_j['Activity ' + str(k)]
+    original_str = df_ind_j['DB Act ' + str(k)]
+    original_db_code = df_ind_j['Activity ' + str(k)]
     
     # Find this input activity in brightway databases
-    db_name = input_act_db_code.split("'")[1]
-    code = input_act_db_code.split("'")[3]
-    input_act_db_code_tuple = (db_name, code)
+    db_name = original_db_code.split("'")[1]
+    code = original_db_code.split("'")[3]
+    original_db_code_tuple = (db_name, code)
     
     # exclude unnecessary databases
     if db_name.lower() in exclude_dbs:
         return df
     
     # Compute amount
-    input_act_amount = df_ind_j['On ' + str(k)] \
-                     * df_ind_j['Amount Act ' + str(k)] \
-                     * df_ind_j['CFL Act ' + str(k)] \
-                     * ConversionDem2FU
+    original_on = df_ind_j['On ' + str(k)]
+    original_amount = df_ind_j['Amount Act ' + str(k)]
+    original_cfl = df_ind_j['CFL Act ' + str(k)]
+    computed_amount = original_on \
+                    * original_amount \
+                    * original_cfl \
+                    * ConversionDem2FU
 
     if db_name == 'ecoinvent 3.3 cutoff' and 'ecoinvent 3.3 cutoff' not in bw.databases:
         current_project = deepcopy(bw.projects.current)
         bw.projects.set_current('ecoinvent 3.3 cutoff') # Temporarily switch to ecoinvent 3.3 project
-        act_bw = bw.get_activity(input_act_db_code_tuple)
+        act_bw = bw.get_activity(original_db_code_tuple)
         bw.projects.set_current(current_project)
-        input_act_values_dict = create_input_act_dict(act_bw, input_act_amount)
+        input_act_values_dict = create_input_act_dict(act_bw, computed_amount)
     else:
         try:
             # Find activity using bw functionality
-            act_bw = bw.get_activity(input_act_db_code_tuple)
-            input_act_values_dict = create_input_act_dict(act_bw, input_act_amount)
+            act_bw = bw.get_activity(original_db_code_tuple)
+            input_act_values_dict = create_input_act_dict(act_bw, computed_amount)
         except:
             # If bw.get_activity does not work for whichever reason, fill info manually
             if replace_agribalyse_with_ei and "agribalyse" in db_name.lower():
                 db_name = CONSUMPTION_DB_NAME
-            input_act_values_dict = bw_get_activity_info_manually(input_act_str, db_name, input_act_amount)
+            input_act_values_dict = bw_get_activity_info_manually(original_str, db_name, computed_amount)
         
     # Add exchange to the dataframe with database in brightway format
+    input_act_values_dict.update(
+        {
+            'original_on': original_on,
+            'original_activity': original_db_code,
+            'original_db_act': original_str,
+            'original_cfl_act': original_cfl,
+            'original_amount': original_amount,
+        }
+    )
     df = append_exchanges_in_correct_columns(df, input_act_values_dict)
     
     return df
@@ -405,9 +424,16 @@ def bw_get_activity_info_manually(input_act_str, db_name, input_act_amount):
 
     # Add comment when activity cannot be found
     input_act_values_dict = {}
+    if 'exiobase' in db_name.lower() and "Manufacture of " in input_act_name:
+        input_act_name = input_act_name[15:].capitalize()
     input_act_values_dict['name'] = input_act_name
     input_act_values_dict['unit'] = input_act_unit
-    input_act_values_dict['location'] = input_act_location
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        location_iso2 = coco.convert(names=input_act_location, to='ISO2')
+    if location_iso2 == "not found":
+        location_iso2 = input_act_location
+    input_act_values_dict['location'] = location_iso2
     input_act_values_dict['amount'] = input_act_amount
     input_act_values_dict['database'] = db_name
     input_act_values_dict['type'] = ACTIVITY_TYPE_DICT['process'] # TODO remove hardcoding
@@ -469,9 +495,15 @@ def replace_one_db(df, db_old_name, db_new_name):
     return df_updated
 
 
-def update_all_db(df, update_ecoinvent=True, update_agribalyse=True, use_ecoinvent_371=False):
+def update_all_db(
+    df, 
+    update_ecoinvent=True, 
+    update_agribalyse=True, 
+    update_exiobase=True, 
+    use_ecoinvent_371=True,
+):
     '''
-    Update all databases in the consumption database
+    Update all databases in the consumption database. TODO make more generic
     '''
     if update_ecoinvent:
         if use_ecoinvent_371:
@@ -483,5 +515,86 @@ def update_all_db(df, update_ecoinvent=True, update_agribalyse=True, use_ecoinve
         ei_name = 'ecoinvent 3.3 cutoff'
     if update_agribalyse:
         df = replace_one_db(df, 'Agribalyse 1.2',  'Agribalyse 1.3 - {}'.format(ei_name))
+    if update_agribalyse:
+        df = replace_one_db(df, 'EXIOBASE 2.2',  "Exiobase 3.8.1 Monetary 2015")
         
     return df
+
+
+
+def update_exiobase_amounts(ex_name, exiobase_path):
+    # The following code is needed to update amounts of exiobase exchanges, see Froemelt thesis, Appendix D.4, p.242:
+    # "the shares of EXIOBASE sectors were determined based on the Swiss final demand vector provided by EXIOBASE"
+    # This update is needed in case new regions appear in future exiobase versions, 
+    # and to be consistent with the most updated exiobase Swiss final demand.
+
+    # 1. Find activities in the consumption database that have exchanges from all regionalized exiobase sectors
+    co = bw.Database(CONSUMPTION_DB_NAME)
+    acts_to_modify = {}
+    for act in co:
+        exiobase_excs = np.array([exc.input['name'] for exc in act.exchanges() if exc.input['database'] == ex_name])
+        excs_to_modify = []
+        for exc in set(exiobase_excs):
+            if sum(exiobase_excs==exc)>2:
+                excs_to_modify.append(exc)
+        if len(excs_to_modify) > 0:
+            acts_to_modify[act] = excs_to_modify
+
+    # 2. Find shares of the sectors based on the Exiobase household consumption
+    if '2.2' in ex_name:
+        filename = "mrFinalDemand_version2.2.2.txt"
+        columns = ['Unnamed: 0', 'Unnamed: 1', 'CH']
+    elif '3.8.1' in ex_name: 
+        filename = "Y.txt"
+        columns = ['region', 'Unnamed: 1', 'CH']
+    filepath = Path(exiobase_path) / filename
+    df = pd.read_table(filepath)
+    df = df[columns]
+    df.columns = ['location', 'name', 'hh_consumption']
+    df = df.dropna()
+    df.index = np.arange(len(df))
+
+    # 3. Modify names of the sectors to be consistent with brightway
+    names_dict = {}
+    for name in set(df['name']):
+        start = name.find('(')
+        end = name.find(')')
+        if start!=end and name[start+1:end].isnumeric():
+            names_dict[name] = name[:start-1]      
+    for name, name_no_number in names_dict.items():
+        mask = df['name']==name
+        df['name'][mask] = name_no_number
+        
+    # 4. Replace old exiobase exchanges with new ones
+    chf_to_euro_2007 = 0.594290
+    chf_to_euro_2015 = 0.937234
+    ex = bw.Database(ex_name)
+    l = len(acts_to_modify)
+    iact = 0
+    for act_to_modify, excs in acts_to_modify.items():
+        print("{:3d}/{:3d} {}".format(iact, l, act_to_modify['name']))
+        original_ConversionDem2FU = act_to_modify['original_ConversionDem2FU']
+        ConversionDem2FU = original_ConversionDem2FU/chf_to_euro_2007*chf_to_euro_2015
+        for exc in excs:
+            # Delete old exchanges
+            [bw_exc.delete() for bw_exc in act_to_modify.exchanges() if bw_exc.input['name'] == exc 
+             and bw_exc['type']=='technosphere']
+            # Add new exchanges
+            sector = df[df['name'] == exc].copy()
+            amounts = np.array([float(val) for val in sector['hh_consumption'].values])
+            if sum(amounts) != 0:
+                amounts /= sum(amounts)
+                sector['amount'] = amounts
+                for _,row in sector.iterrows():
+                    input_ = [act for act in ex if act['name']==row['name'] and act['location']==row['location']]
+                    amount = row['amount']*ConversionDem2FU
+                    if len(input_)==1:
+                        act_to_modify.new_exchange(
+                            input=input_[0], 
+                            amount=amount,
+                            type="technosphere"
+                        ).save()
+                    else:
+                        print(input_)
+        iact += 1
+

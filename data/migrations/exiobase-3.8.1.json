@@ -1,0 +1,181 @@
+{
+    "fields": [
+        "name"
+    ],
+    "data": [
+        [
+            ["Hotels and restaurants"],
+            {
+                "name": "Hotel and restaurant services"
+            }
+        ],
+        [
+            ["Retail sale of automotive fuel"],
+            {
+                "name": "Retail trade services of motor fuel"
+            }
+        ],
+        [
+            ["Wholesale trade and commission trade, except of motor vehicles and motorcycles"],
+            {
+                "name": "Wholesale trade and commission trade services, except of motor vehicles and motorcycles"
+            }
+        ],
+        [
+            ["Retail trade, except of motor vehicles and motorcycles; repair of personal and household goods"],
+            {
+                "name": "Retail  trade services, except of motor vehicles and motorcycles; repair services of personal and household goods"
+            }
+        ],
+        [
+            ["Transport via railways"],
+            {
+                "name": "Railway transportation services"
+            }
+        ],
+        [
+            ["Other land transport"],
+            {
+                "name": "Other land transportation services"
+            }
+        ],          
+        [
+            ["Transport via pipelines"],
+            {
+                "name": "Transportation services via pipelines"
+            }
+        ],
+        [
+            ["Sea and coastal water transport"],
+            {
+                "name": "Sea and coastal water transportation services"
+            }
+        ],
+        [
+            ["Inland water transport"],
+            {
+                "name": "Inland water transportation services"
+            }
+        ],
+        [
+            ["Air transport"],
+            {
+                "name": "Air transport services"
+            }
+        ],
+        [
+            ["Wearing apparel; dressing and dyeing of fur"],
+            {
+                "name": "Wearing apparel; furs"
+            }
+        ],
+        [
+            ["Tanning and dressing of leather; manufacture of luggage, handbags, saddlery, harness and footwear"],
+            {
+                "name": "Leather and leather products"
+            }
+        ],
+        [
+            ["Other business activities"],
+            {
+                "name": "Other business services"
+            }
+        ],
+        [
+            ["Construction"],
+            {
+                "name": "Construction work"
+            }
+        ],
+        [
+            ["Furniture; manufacturing n.e.c."],
+            {
+                "name": "Furniture; other manufactured goods n.e.c."
+            }
+        ],     
+        [
+            ["Paper"],
+            {
+                "name": "Paper and paper products"
+            }
+        ],
+        [
+            ["Health and social work"],
+            {
+                "name": "Health and social work services"
+            }
+        ],
+        [
+            ["Post and telecommunications"],
+            {
+                "name": "Post and telecommunication services"
+            }
+        ],
+        [
+            ["Publishing, printing and reproduction of recorded media"],
+            {
+                "name": "Printed matter and recorded media"
+            }
+        ],
+        [
+            ["Cultivation of crops nec"],
+            {
+                "name": "Crops nec"
+            }
+        ],
+        [
+            ["Processing of Food products nec"],
+            {
+                "name": "Food products nec"
+            }
+        ],
+        [
+            ["Recreational, cultural and sporting activities"],
+            {
+                "name": "Recreational, cultural and sporting services"
+            }
+        ],
+        [
+            ["Activities of membership organisation n.e.c."],
+            {
+                "name": "Membership organisation services n.e.c."
+            }
+        ],
+        [
+            ["Supporting and auxiliary transport activities; activities of travel agencies"],
+            {
+                "name": "Supporting and auxiliary transport services; travel agency services"
+            }
+        ],
+        [
+            ["Education"],
+            {
+                "name": "Education services"
+            }
+        ],
+        [
+            ["Other service activities"],
+            {
+                "name": "Other services"
+            }
+        ],
+        [
+            ["Financial intermediation, except insurance and pension funding"],
+            {
+                "name": "Financial intermediation services, except insurance and pension funding services"
+            }
+        ],
+        [
+            ["Public administration and defence; compulsory social security"],
+            {
+                "name": "Public administration and defence services; compulsory social security services"
+            }
+        ],
+        [
+            ["Insurance and pension funding, except compulsory social security"],
+            {
+                "name": "Insurance and pension funding services, except compulsory social security services"
+            }
+        ]
+    ]
+}

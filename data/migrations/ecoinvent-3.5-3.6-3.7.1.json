@@ -1,0 +1,19 @@
+{
+    "fields": ["name"],
+    "data": [
+        [
+            ["steam production in chemical industry"],
+            {
+                "name": "steam production, as energy carrier, in chemical industry",
+                "reference product": "heat, from steam, in chemical industry"
+            }
+        ],
+        [
+            ["market for green bell pepper"],
+            {
+                "name": "market for bell pepper",
+                "reference product": "bell pepper"
+            }
+        ]
+    ]
+}

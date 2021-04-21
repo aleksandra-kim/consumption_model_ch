@@ -1,0 +1,19 @@
+{
+    "fields": ["name", "reference product", "location"],
+    "data": [
+        [
+            ["rice production", "rice", "US"],
+            {
+                "name": "rice production, non-basmati",
+                "reference product": "rice, non-basmati"
+            }
+        ],
+        [
+            ["rice production", "rice", "CN"],
+            {
+                "name": "rice production, non-basmati",
+                "reference product": "rice, non-basmati"
+            }
+        ]
+    ]
+}
