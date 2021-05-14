@@ -308,6 +308,7 @@ def import_consumption_db(
     write_dir="write_files",
     replace_agribalyse_with_ei=True,
     ex_path=None,
+    sut_path=None,
 ):
     '''
     - Raw data: Excel sheet can be obtained from https://doi.org/10.1021/acs.est.8b01452
@@ -382,26 +383,6 @@ def import_consumption_db(
         co.match_database(fields=('name', 'unit', 'location', 'categories'))
         co.match_database(ei_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
 
-        ex_name = 'EXIOBASE 2.2'
-        if ex_name not in exclude_dbs:
-            for db_name in bw.databases:
-                if "exiobase" in db_name.lower():
-                    ex_name = db_name
-            print("--> Linking to {}".format(ex_name))
-            co.match_database(ex_name, fields=('name', 'unit', 'location',))
-
-        ag_name = 'Agribalyse 1.3 - {}'.format(ei_name)
-        if ag_name not in exclude_dbs and ag_name in bw.databases and not replace_agribalyse_with_ei:
-            print("-->Linking to {}".format(ag_name))
-            co.match_database(ag_name, fields=('name', 'unit', 'location'))
-
-        ag12_name = 'Agribalyse 1.2 - {}'.format(ei_name)
-        if ag12_name not in exclude_dbs and ag12_name in bw.databases:
-            print("-->Linking to {}".format(ag12_name))
-            co.match_database(ag12_name, fields=('name', 'unit', 'location'))
-
-
-
         ### 3. Define a migration for particular activities that can only be hardcoded
         #########
         if "3.5" in ei_name or "3.6" in ei_name or "3.7" in ei_name:
@@ -463,17 +444,26 @@ def import_consumption_db(
                  [act['code'] for act in ei if 'market for soybean' in act['name']
                   and all([_ not in act['name'] for _ in ['meal', 'beverage', 'seed', 'feed', 'oil']])]},
         ]
-        
-         ### 4. Define migrations for exiobase
+
+        ag_name = 'Agribalyse 1.3 - {}'.format(ei_name)
+        if ag_name not in exclude_dbs and ag_name in bw.databases and not replace_agribalyse_with_ei:
+            print("-->Linking to {}".format(ag_name))
+            co.match_database(ag_name, fields=('name', 'unit', 'location'))
+
+        ag12_name = 'Agribalyse 1.2 - {}'.format(ei_name)
+        if ag12_name not in exclude_dbs and ag12_name in bw.databases:
+            print("-->Linking to {}".format(ag12_name))
+            co.match_database(ag12_name, fields=('name', 'unit', 'location'))
+        co = modify_exchanges(co, mapping, ei_name)
+
+        ### 4. Define migrations for exiobase
         #########
+        ex_name = 'exiobase 2.2'
         if ex_name not in exclude_dbs:
-            # Rename RoW locations
-            exiobase_381_change_locations_data = json.load(open("data/migrations/exiobase-row-locations.json"))
-            bw.Migration("exiobase-381-change-locations").write(
-                exiobase_381_change_locations_data,
-                description="Change RoW locations in exiobase"
-            )
-            co.migrate('exiobase-381-change-locations')
+            for db_name in bw.databases:
+                if "exiobase" in db_name.lower():
+                    ex_name = db_name
+            print("--> Linking to {}".format(ex_name))
             if "3.8.1" in ex_name:
                 print("Migration for {}".format(ex_name))
                 # Only based on the `name` field
@@ -483,15 +473,24 @@ def import_consumption_db(
                     description="Change names of some exiobase 3.8.1 activities"
                 )
                 co.migrate('exiobase-381-change-names')
-            co.match_database(ex_name, fields=('name', 'unit', 'location'))
-            co.statistics()
+                margins_path = Path(sut_path) / 'CH_2015.xls'
+            elif '2.2' in ex_name:
+                margins_path = Path(sut_path) / 'CH_2007.xls'
+        # return co
 
-        co = modify_exchanges(co, mapping, ei_name)
+            co = link_exiobase(co, ex_name, ex_path, margins_path)
+            co.match_database(ex_name, fields=('name', 'unit', 'location',))
+
+        # # Rename RoW locations
+        # exiobase_381_change_locations_data = json.load(open("data/migrations/exiobase-row-locations.json"))
+        # bw.Migration("exiobase-381-change-locations").write(
+        #     exiobase_381_change_locations_data,
+        #     description="Change RoW locations in exiobase"
+        # )
+        # co.migrate('exiobase-381-change-locations')
         co.statistics()
         if len(list(co.unlinked)) == 0:
             co.write_database()
-            if ex_name not in exclude_dbs:
-                update_exiobase_amounts(ex_name, ex_path)
         else:
             print("Some exchanges are still unlinked")
         # Give the required name to the consumption database
@@ -499,9 +498,23 @@ def import_consumption_db(
             co_diff_name = bw.Database(CONSUMPTION_DB_NAME)
             co_diff_name.rename(co_name)
 
+    # Sum up repetitive exchanges
+    co = bw.Database(co_name)
+    for act in co:
+        excs = [exc.input for exc in act.exchanges()]
+        rep_inputs = {exc for exc in excs if excs.count(exc) > 1}
+        for rep_input in rep_inputs:
+            amounts = [exc.amount for exc in act.exchanges() if exc.input == rep_input]
+            [exc.delete() for exc in act.exchanges() if exc.input == rep_input]
+            act.new_exchange(
+                input=rep_input,
+                amount=sum(amounts),
+                type='technosphere'
+            ).save()
+
             
             
-def add_consumption_activities(
+def add_consumption_all_hh(
     co_name, 
     habe_path, 
     habe_year='091011', 
@@ -546,8 +559,8 @@ def add_consumption_activities(
     meta.set_index('category2', inplace=True)
 
     # Add info
-    total_consumption['n_households'] = meta.loc['HABE091011_Ausgaben']['n_rows']
-    total_consumption['n_people']     = meta.loc['HABE091011_Personen']['n_rows']
+    total_consumption['n_households'] = meta.loc['HABE{}_Ausgaben'.format(habe_year)]['n_rows']
+    total_consumption['n_people']     = meta.loc['HABE{}_Personen'.format(habe_year)]['n_rows']
                 
     # Save total demand
     write_dir = Path(write_dir)
@@ -594,9 +607,10 @@ def add_consumption_activities(
 
     ### 3. Add total inputs from Andi's model as swiss consumption activity
     #########
-    try: co.get('ch hh all consumption').delete()
+    co_act_name = 'ch hh all consumption {}'.format(option)
+    try: co.get(co_act_name).delete()
     except: pass
-    consumption_all = co.new_activity('ch hh all consumption', name='ch hh all consumption', location='CH', unit='1 month of consumption')
+    consumption_all = co.new_activity(co_act_name, name=co_act_name, location='CH', unit='1 month of consumption')
     consumption_all.save()
     # Add production exchange for the activity `consumption`
     consumption_all.new_exchange(
@@ -604,6 +618,9 @@ def add_consumption_activities(
         amount = 1,
         type = 'production',
     ).save()
+    consumption_all['agg_option'] = option
+    consumption_all['n_households'] = n_households
+    consumption_all.save()
     # Smth with codes
     codes = [act['code'] for act in co]
     unlinked_codes = []
@@ -619,20 +636,72 @@ def add_consumption_activities(
         else:
             unlinked_codes.append(code)
 
-     ### 4. Note that 
-     #########
-     # the number of consumption exchanges is the same as the number of activities in the database, 
-     # but is a lot less than what Andi provided in his total demands. TODO not sure what this means anymore
+    ### 4. Note that
+    #########
+    # the number of consumption exchanges is the same as the number of activities in the database,
+    # but is a lot less than what Andi provided in his total demands. TODO not sure what this means anymore
 
-     ### 5. Add consumption activity for an average household
-     #########
-    try: co.get('ch hh average consumption').delete()
+
+def add_consumption_average_hh(consumption_all):
+    ### 5. Add consumption activity for an average household
+    #########
+    co_name = consumption_all.get('database')
+    option = consumption_all.get('agg_option')
+    n_households = consumption_all.get('n_households')
+    co = bw.Database(co_name)
+    co_average_act_name = 'ch hh average consumption {}'.format(option)
+    try: co.get(co_average_act_name).delete()
     except: pass
-    consumption_average = consumption_all.copy('ch hh average consumption', name='ch hh average consumption')
+    consumption_average = consumption_all.copy(co_average_act_name, name=co_average_act_name)
     for exc in consumption_average.exchanges():
         if exc['type'] != 'production':
             exc['amount'] /= n_households
             exc.save()
+
+def add_consumption_activities(
+        co_name,
+        habe_path,
+        habe_year='091011',
+        option='disaggregated',
+):
+    add_consumption_all_hh(co_name, habe_path, habe_year='091011', option='disaggregated', )
+    add_consumption_all_hh(co_name, habe_path, habe_year='091011', option='aggregated', )
+    co = bw.Database(co_name)
+    demand_act_dis = co.search('consumption disaggregated')[0]
+    demand_act_agg = co.search('consumption aggregated')[0]
+    dict_dis = {a.input: a.amount for a in demand_act_dis.exchanges() if a['type'] == 'technosphere'}
+    dict_agg = {b.input: b.amount for b in demand_act_agg.exchanges() if b['type'] == 'technosphere'}
+
+    add_inputs = list(set(dict_dis.keys()) - set(dict_agg.keys()))
+    fix_amounts = {}
+    for input_, amount_dis in dict_dis.items():
+        amount_agg = dict_agg.get(input_, np.nan)
+        if not np.allclose(amount_dis, amount_agg):
+            fix_amounts[input_] = amount_dis
+    n_households_old = demand_act_dis['n_households']
+    demand_act_dis.delete()
+    demand_act_agg.delete()
+
+    add_consumption_all_hh(co_name, habe_path, habe_year=habe_year, option=option, )
+    demand = co.search('consumption aggregated')
+    assert len(demand) == 1
+    demand = demand[0]
+    n_households_new = demand['n_households']
+
+    for exc in demand.exchanges():
+        amount = fix_amounts.get(exc.input, False)
+        if amount:
+            exc['amount'] = amount
+            exc.save()
+    for input_ in add_inputs:
+        amount = fix_amounts.get(input_) / n_households_old * n_households_new
+        demand.new_exchange(
+            input=input_,
+            amount=amount,
+            type='technosphere',
+        ).save()
+
+    add_consumption_average_hh(demand)
 
 
 

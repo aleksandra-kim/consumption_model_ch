@@ -1,0 +1,288 @@
+{
+    "Tobacco": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Tobacco products"
+        ]
+    },
+
+    "Restaurants, cafés and bars": {
+        "trade_margin": false,
+        "transport_margin": false,
+        "activities": [
+            "Hotels and restaurants"
+        ]
+    },
+
+    "Self-service restaurants and take-aways": {
+        "trade_margin": false,
+        "transport_margin": false,
+        "activities": [
+            "Hotels and restaurants"
+        ]
+    },
+    "Canteens": {
+        "trade_margin": false,
+        "transport_margin": false,
+        "activities": [
+            "Hotels and restaurants"
+        ]
+    },
+    "Accommodation services": {
+        "trade_margin": false,
+        "transport_margin": false,
+        "activities": [
+            "Hotels and restaurants"
+        ]
+    },
+    "Clothing materials": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Textiles"
+        ]
+    },
+    "Garments for men": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Wearing apparel; dressing and dyeing of fur"
+        ]
+    },
+    "Garments for women": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Wearing apparel; dressing and dyeing of fur"
+        ]
+    },
+    "Garments for children": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Wearing apparel; dressing and dyeing of fur"
+        ]
+    },
+    "Clothing accessories": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Textiles"
+        ]
+    },
+    "Sewing and knitting products": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Machinery and equipment n.e.c."
+        ]
+    },
+    "Cleaning, repair and hire of clothing": {
+        "trade_margin": false,
+        "transport_margin": false,
+        "activities": [
+            "Retail trade, except of motor vehicles and motorcycles; repair of personal and household goods"
+        ]
+    },
+    "Footwear for men": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Tanning and dressing of leather; manufacture of luggage, handbags, saddlery, harness and footwear"
+        ]
+    },
+    "Footwear for women": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Tanning and dressing of leather; manufacture of luggage, handbags, saddlery, harness and footwear"
+        ]
+    },
+    "Footwear for children and babies": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Tanning and dressing of leather; manufacture of luggage, handbags, saddlery, harness and footwear"
+        ]
+    },
+    "Repair and hire of footwear": {
+        "trade_margin": false,
+        "transport_margin": false,
+        "activities": [
+            "Retail trade, except of motor vehicles and motorcycles; repair of personal and household goods"
+        ]
+    },
+    "Regular maintenance costs of principal residence": {
+        "trade_margin": false,
+        "transport_margin": false,
+        "activities": [
+            "Other business activities"
+        ]
+    },
+    "Maintenance and repair of the dwelling": {
+        "trade_margin": false,
+        "transport_margin": false,
+        "activities": [
+            "Construction"
+        ]
+    },
+    "Furniture and furnishings, carpets and other floor coverings incl. repairs": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Furniture; manufacturing n.e.c."
+        ]
+    },
+    "Household textiles": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Textiles"
+        ]
+    },
+    "Refrigerators, dishwashers, washing machines and dryers": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Machinery and equipment n.e.c."
+        ]
+    },
+    "Cookers, barbecue, space heaters and room care appliances": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Machinery and equipment n.e.c."
+        ]
+    },
+    "Small electric household appliances": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Machinery and equipment n.e.c."
+        ]
+    },
+    "Repair of household appliances": {
+        "trade_margin": false,
+        "transport_margin": false,
+        "activities": [
+            "Retail trade, except of motor vehicles and motorcycles; repair of personal and household goods"
+        ]
+    },
+    "Glassware, tableware": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Ceramic goods",
+            "Glass and glass products",
+        ]
+    },
+    "Cutlery": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Fabricated metal products, except machinery and equipment"
+        ]
+    },
+    "Kitchen utensils": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Fabricated metal products, except machinery and equipment"
+        ]
+    },
+    "Other household utensils": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Fabricated metal products, except machinery and equipment"
+        ]
+    },
+    "Tools and equipment without engines for house and garden": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Fabricated metal products, except machinery and equipment"
+        ]
+    },
+    "Machines with engines for house and garden": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Machinery and equipment n.e.c."
+        ]
+    },
+    "Detergents and cleaning products": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Chemicals nec"
+        ]
+    },
+    "Cleaning articles": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Furniture; manufacturing n.e.c."
+        ]
+    },
+    "Plastic or paper refuse bags without fees": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Rubber and plastic products",
+            "Paper",
+        ]
+    },
+    "Other non-durable household articles": {
+        "trade_margin": false,
+        "transport_margin": false,
+        "activities": [
+            "Retail trade, except of motor vehicles and motorcycles; repair of personal and household goods"
+        ]
+    },
+    "Domestic services and household services": {
+        "trade_margin": false,
+        "transport_margin": false,
+        "activities": [
+            "Other business activities"
+        ]
+    },
+    "Medicines": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Chemicals nec"
+        ]
+    },
+    "Glasses and contact lenses": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Medical, precision and optical instruments, watches and clocks"
+        ]
+    },
+    "Tobacco": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Tobacco products"
+        ]
+    },
+    "Tobacco": {
+        "trade_margin": true,
+        "transport_margin": true,
+        "activities": [
+            "Tobacco products"
+        ]
+    },
+
+}
+
+
+
+
+
+
+
+
