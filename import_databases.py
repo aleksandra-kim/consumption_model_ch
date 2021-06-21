@@ -1,4 +1,7 @@
-import brightway2 as bw
+import bw2calc as bc
+import bw2data as bd
+import bw2io as bi
+
 import pandas as pd
 import numpy as np
 from copy import copy
@@ -17,21 +20,21 @@ from utils_consumption_db import *
 # ################
 
 def import_ecoinvent(ei_path, ei_name):
-    if ei_name in bw.databases:
+    if ei_name in bd.databases:
         print(ei_name + " database already present!!! No import is needed")
     else:
-        ei = bw.SingleOutputEcospold2Importer(ei_path, ei_name)
+        ei = bi.SingleOutputEcospold2Importer(ei_path, ei_name)
         ei.apply_strategies()
         ei.match_database(db_name='biosphere3',fields=('name', 'category', 'unit', 'location'))
         ei.statistics()
         ei.write_database()
 
 def create_ecoinvent_33_project(ei33_path, ei33_name="ecoinvent 3.3 cutoff" ):
-    current_project = deepcopy(bw.projects.current)
-    bw.projects.set_current(ei33_name) # Temporarily switch to ecoinvent 3.3 project
-    bw.bw2setup()
+    current_project = deepcopy(bd.projects.current)
+    bd.projects.set_current(ei33_name) # Temporarily switch to ecoinvent 3.3 project
+    bi.bw2setup()
     import_ecoinvent(ei33_path, ei33_name)
-    bw.projects.set_current(current_project) # Switch back
+    bd.projects.set_current(current_project) # Switch back
 
 
 
@@ -41,7 +44,7 @@ def create_ecoinvent_33_project(ei33_path, ei33_name="ecoinvent 3.3 cutoff" ):
 
 def import_exiobase_22(ex22_path, ex22_name='EXIOBASE 2.2'):
     from bw2io.importers.exiobase2 import Exiobase22Importer
-    if ex22_name in bw.databases:
+    if ex22_name in bd.databases:
         print(ex22_name + " database already present!!! No import is needed")
     else:
         ex22 = Exiobase22Importer(ex22_path, ex22_name)
@@ -50,7 +53,7 @@ def import_exiobase_22(ex22_path, ex22_name='EXIOBASE 2.2'):
         
 def import_exiobase_3(ex3_path, ex3_name):
     from bw2io.importers.exiobase3 import Exiobase3Importer
-    if ex3_name in bw.databases:
+    if ex3_name in bd.databases:
         print("{} database already present!!! No import is needed".format(ex3_name))
     else:
         ex = Exiobase3Importer(ex3_path, ex3_name) # give path to IOT_year_pxp folder
@@ -68,14 +71,14 @@ def import_agribalyse12(ag12_path, ei_name, ag12_name='Agribalyse 1.2'):
     '''
     ag12_ei_name = ag12_name + ' - ' + ei_name
     
-    if ei_name not in bw.databases:
+    if ei_name not in bd.databases:
         print('Cannot find database: ' + ei_name)
         return
     
-    if ag12_ei_name in bw.databases:
+    if ag12_ei_name in bd.databases:
         print(ag12_ei_name + " database already present!!! No import is needed")
     else:
-        ag12_ei = bw.SingleOutputEcospold1Importer(ag12_path, ag12_ei_name)
+        ag12_ei = bi.SingleOutputEcospold1Importer(ag12_path, ag12_ei_name)
         ag12_ei.apply_strategies()
         
         ag12_ei.write_excel(True)
@@ -90,7 +93,7 @@ def import_agribalyse12(ag12_path, ei_name, ag12_name='Agribalyse 1.2'):
         ag12_ei.write_excel(True)
         
         ag12_ei_new_biosphere_name = ag12_ei_name + " - new biosphere"
-        bw.Database(ag12_ei_new_biosphere_name).register()
+        bd.Database(ag12_ei_new_biosphere_name).register()
         ag12_ei.add_unlinked_flows_to_biosphere_database(ag12_ei_new_biosphere_name)
 
         def get_unlinked(data):
@@ -142,15 +145,15 @@ def import_agribalyse12(ag12_path, ei_name, ag12_name='Agribalyse 1.2'):
 
 def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
 
-    if ei_name not in bw.databases:
+    if ei_name not in bd.databases:
         print('Cannot find database: ' + ei_name)
         return
 
     ag13_ei_name = "{} - {}".format(ag13_name, ei_name)
-    if ag13_ei_name in bw.databases:
+    if ag13_ei_name in bd.databases:
         print(ag13_ei_name + " database already present!!! No import is needed")
     else:
-        ag13_ei = bw.SimaProCSVImporter(ag13_path, ag13_ei_name)
+        ag13_ei = bi.SimaProCSVImporter(ag13_path, ag13_ei_name)
         ag13_ei.apply_strategies()
         # Apply all migrations with previous versions of ecoinvent
         ag13_ei.migrate('simapro-ecoinvent-3.3')
@@ -159,7 +162,7 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
         ag13_ei = update_ecoinvent_locations(ag13_ei)
         # Biosphere flows
         ag13_ei_new_biosphere_name = ag13_ei_name + " - new biosphere"
-        bw.Database(ag13_ei_new_biosphere_name).register()
+        bd.Database(ag13_ei_new_biosphere_name).register()
         ag13_ei.add_unlinked_flows_to_biosphere_database(ag13_ei_new_biosphere_name)
         # Add unlinked waste flows as new activities
         ag13_ei.add_unlinked_activities()
@@ -170,7 +173,7 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
         #- Most of them are minor changes in names of activities and reference products
         #- Some activities contain `multiplier` field if the unit conversion is needed or reference products are not identical
         agribalyse13_ecoinvent_names = json.load(open("data/migrations/agribalyse-1.3.json"))
-        bw.Migration("agribalyse13-ecoinvent-names").write(
+        bi.Migration("agribalyse13-ecoinvent-names").write(
             agribalyse13_ecoinvent_names,
             description="Change names of some activities"
         )
@@ -179,7 +182,7 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
 
         ### 4. Allocate by production volume
         #########
-        ei36 = bw.Database(ei_name)
+        ei36 = bd.Database(ei_name)
         # Create mapping between unlinked exchanges and ecoinvent activities that constitute each unlinked exchange.
         # In this case we do not need to do it manually since all unlinked exchanges need to be allocated geographically.
         # Example: (market for lime, GLO) is split by production volume into (market for lime, RoW) & (market for lime, RER).
@@ -188,7 +191,7 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
 
         def create_location_mapping(ag13_ei, ei_name):
 
-            ei = bw.Database(ei_name)
+            ei = bd.Database(ei_name)
 
             unlinked_list = list(ag13_ei.unlinked)
             len_unlinked  = len(unlinked_list)
@@ -317,13 +320,13 @@ def import_consumption_db(
     - habe_year can also be 121314 or 151617
     '''
 
-    if co_name in bw.databases:
+    if co_name in bd.databases:
         print(co_name + " database already present!!! No import is needed")
     else:
         ### 1. Extract data from Andi's excel file
         #########
         # Make sure that 'ecoinvent 3.3 cutoff' project has been created
-        if 'ecoinvent 3.3 cutoff' not in bw.projects:
+        if 'ecoinvent 3.3 cutoff' not in bd.projects:
             print(
                 'ecoinvent 3.3 cutoff project is needed for the import, please run `create_ecoinvent_33_project(path)`'
             )
@@ -341,44 +344,44 @@ def import_consumption_db(
         act_indices = df.index[df['ConversionDem2FU'].notna()].tolist()  # indices of all activities
         exclude_dbs = [edb.lower() for edb in exclude_dbs]
         print("--> Creating consumption_db.xlsx")
-#         for ind in act_indices:
-#             # For each row
-#             df_ind = df.iloc[ind]
-#             df_ind = df_ind[df_ind.notna()]
-#             # Add activity
-#             df_bw, df_act = append_activity(df_bw, df_ind[:N_ACT_RELEVANT],
-#                                             code_unit)  # only pass columns relevant to this function
-#             # Add exchanges
-#             df_bw = append_exchanges(
-#                 df_bw,
-#                 df_ind,
-#                 df_act,
-#                 exclude_dbs=exclude_dbs,
-#                 replace_agribalyse_with_ei=replace_agribalyse_with_ei
-#             )
-#         df_bw.columns = list(string.ascii_uppercase[:len(df_bw.columns)])
-#         # Update to relevant databases and save excel file
-#         if "3.7.1" in ei_name:
-#             use_ecoinvent_371 = True
-#         else:
-#             use_ecoinvent_371 = False
-
-#         ag_name = 'Agribalyse 1.3 - {}'.format(ei_name)
-#         if replace_agribalyse_with_ei:
-#             df_agribalyse_ei = pd.read_excel("data/agribalyse_replaced_with_ecoinvent.xlsx")
-#             df_bw = df_bw.append(df_agribalyse_ei, ignore_index=True)
+        for ind in act_indices:
+            # For each row
+            df_ind = df.iloc[ind]
+            df_ind = df_ind[df_ind.notna()]
+            # Add activity
+            df_bw, df_act = append_activity(df_bw, df_ind[:N_ACT_RELEVANT],
+                                            code_unit)  # only pass columns relevant to this function
+            # Add exchanges
+            df_bw = append_exchanges(
+                df_bw,
+                df_ind,
+                df_act,
+                exclude_dbs=exclude_dbs,
+                replace_agribalyse_with_ei=replace_agribalyse_with_ei
+            )
+        df_bw.columns = list(string.ascii_uppercase[:len(df_bw.columns)])
+        # Update to relevant databases and save excel file
+        if "3.7.1" in ei_name:
+            use_ecoinvent_371 = True
+        else:
+            use_ecoinvent_371 = False
+        
+        ag_name = 'Agribalyse 1.3 - {}'.format(ei_name)
+        if replace_agribalyse_with_ei:
+            df_agribalyse_ei = pd.read_excel("data/agribalyse_replaced_with_ecoinvent.xlsx")
+            df_bw = df_bw.append(df_agribalyse_ei, ignore_index=True)
 
         write_dir = Path(write_dir)
         write_dir.mkdir(parents=True, exist_ok=True)
         path_new_db = write_dir / 'consumption_db.xlsx'
-#         df_bw = update_all_db(df_bw, use_ecoinvent_371=use_ecoinvent_371)
-#         df_bw.to_excel(path_new_db, index=False, header=False)
+        df_bw = update_all_db(df_bw, use_ecoinvent_371=use_ecoinvent_371)
+        df_bw.to_excel(path_new_db, index=False, header=False)
 
         ### 2. Link to other databases
         #########
         # We assume that ecoinvent is always included, but exiobase and agribalyse may be excluded
 
-        co = bw.ExcelImporter(path_new_db)
+        co = bi.ExcelImporter(path_new_db)
         co.apply_strategies()
         co.match_database(fields=('name', 'unit', 'location', 'categories'))
         co.match_database(ei_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
@@ -388,7 +391,7 @@ def import_consumption_db(
         if "3.5" in ei_name or "3.6" in ei_name or "3.7" in ei_name:
             print("Migration for 'steam production in chemical industry' and 'market for green bell pepper'")
             ecoinvent_35_36_37_change_names_data = json.load(open("data/migrations/ecoinvent-3.5-3.6-3.7.1.json"))
-            bw.Migration("ecoinvent-35-36-37-change-names").write(
+            bi.Migration("ecoinvent-35-36-37-change-names").write(
                 ecoinvent_35_36_37_change_names_data,
                 description="Change names of some activities"
             )
@@ -400,7 +403,7 @@ def import_consumption_db(
         # These locations have only non-basmati rice production
         if "3.6" in ei_name or "3.7" in ei_name:
             ecoinvent_36_371_rice_nonbasmati = json.load(open("data/migrations/ecoinvent-3.6-3.7.1.json"))
-            bw.Migration("ecoinvent-36-371-rice-nonbasmati").write(
+            bi.Migration("ecoinvent-36-371-rice-nonbasmati").write(
                 ecoinvent_36_371_rice_nonbasmati,
                 description="Change names of some activities"
             )
@@ -412,7 +415,7 @@ def import_consumption_db(
         # The rest of the unlinked exchanges are not uniquely defined in ecoinvent 3.6 -> 1-to-multiple mapping.
         # For example 'rice production' is now divided into basmati and non-basmati rice.
         # Hence, we split them based on their shares in the production volumes.
-        ei = bw.Database(ei_name)
+        ei = bd.Database(ei_name)
         mapping = [
             {('market for rice', 'GLO'):
                  [act['code'] for act in ei if 'market for rice' in act['name']
@@ -446,12 +449,12 @@ def import_consumption_db(
         ]
 
         ag_name = 'Agribalyse 1.3 - {}'.format(ei_name)
-        if ag_name not in exclude_dbs and ag_name in bw.databases and not replace_agribalyse_with_ei:
+        if ag_name not in exclude_dbs and ag_name in bd.databases and not replace_agribalyse_with_ei:
             print("-->Linking to {}".format(ag_name))
             co.match_database(ag_name, fields=('name', 'unit', 'location'))
 
         ag12_name = 'Agribalyse 1.2 - {}'.format(ei_name)
-        if ag12_name not in exclude_dbs and ag12_name in bw.databases:
+        if ag12_name not in exclude_dbs and ag12_name in bd.databases:
             print("-->Linking to {}".format(ag12_name))
             co.match_database(ag12_name, fields=('name', 'unit', 'location'))
         co = modify_exchanges(co, mapping, ei_name)
@@ -460,7 +463,7 @@ def import_consumption_db(
         #########
         ex_name = 'exiobase 2.2'
         if ex_name not in exclude_dbs:
-            for db_name in bw.databases:
+            for db_name in bd.databases:
                 if "exiobase" in db_name.lower():
                     ex_name = db_name
             print("--> Linking to {}".format(ex_name))
@@ -468,7 +471,7 @@ def import_consumption_db(
                 print("Migration for {}".format(ex_name))
                 # Only based on the `name` field
                 exiobase_381_change_names_data = json.load(open("data/migrations/exiobase-3.8.1.json"))
-                bw.Migration("exiobase-381-change-names").write(
+                bi.Migration("exiobase-381-change-names").write(
                     exiobase_381_change_names_data,
                     description="Change names of some exiobase 3.8.1 activities"
                 )
@@ -483,7 +486,7 @@ def import_consumption_db(
 
         # # Rename RoW locations
         # exiobase_381_change_locations_data = json.load(open("data/migrations/exiobase-row-locations.json"))
-        # bw.Migration("exiobase-381-change-locations").write(
+        # bi.Migration("exiobase-381-change-locations").write(
         #     exiobase_381_change_locations_data,
         #     description="Change RoW locations in exiobase"
         # )
@@ -495,11 +498,11 @@ def import_consumption_db(
             print("Some exchanges are still unlinked")
         # Give the required name to the consumption database
         if co_name != CONSUMPTION_DB_NAME:
-            co_diff_name = bw.Database(CONSUMPTION_DB_NAME)
+            co_diff_name = bd.Database(CONSUMPTION_DB_NAME)
             co_diff_name.rename(co_name)
 
     # Sum up repetitive exchanges
-    co = bw.Database(co_name)
+    co = bd.Database(co_name)
     for act in co:
         excs = [exc.input for exc in act.exchanges()]
         rep_inputs = {exc for exc in excs if excs.count(exc) > 1}
@@ -527,24 +530,35 @@ def add_consumption_all_hh(
     get_path = lambda which_file: os.path.join( habe_path, [f for f in os.listdir(habe_path) if habe_year in f and which_file in f][0] )
     path_beschrei = get_path('Datenbeschreibung')
     path_ausgaben = get_path('Ausgaben')
+    path_mengen   = get_path('Mengen')
 
     # change codes to be consistent with consumption database and Andi's codes
-    co = bw.Database(co_name)
+    co = bd.Database(co_name)
     ausgaben = pd.read_csv(path_ausgaben, sep='\t')
+    mengen   = pd.read_csv(path_mengen,   sep='\t')
+    ausgaben.columns = [col.lower() for col in ausgaben.columns]
+    mengen.columns = [col.lower() for col in mengen.columns]
     codes_co_db = sorted([act['code'] for act in co])
     columns_a = ausgaben.columns.values
     columns_m = [columns_a[0]]
     for code_a in columns_a[1:]:
-        code_m = code_a.replace('A', 'm') 
+        code_m = code_a.replace('a', 'm')
         if code_m in codes_co_db:
             columns_m.append(code_m)
         else:
-            columns_m.append(code_a.lower())
+            columns_m.append(code_a)
     ausgaben.columns = columns_m
 
     # Compute total consumption
     total_consumption = ausgaben.sum()
-    total_consumption = total_consumption.drop('HaushaltID')
+    total_consumption = total_consumption.drop('haushaltid')
+    mengen = mengen.sum()
+    mengen = mengen.drop('haushaltid')
+    for i in range(len(mengen)):
+        try:
+            total_consumption[mengen.index[i]] = mengen.values[i]
+        except KeyError:
+            print(mengen.index[i])
 
     # Add other useful info, eg number of households and number of people
     meta = pd.read_excel(path_beschrei, sheet_name='Tabellen', skiprows=8, usecols=[0,1,3,4])
@@ -561,7 +575,7 @@ def add_consumption_all_hh(
     # Add info
     total_consumption['n_households'] = meta.loc['HABE{}_Ausgaben'.format(habe_year)]['n_rows']
     total_consumption['n_people']     = meta.loc['HABE{}_Personen'.format(habe_year)]['n_rows']
-                
+
     # Save total demand
     write_dir = Path(write_dir)
     path_demand = write_dir / "habe_totaldemands.xlsx"
@@ -648,7 +662,7 @@ def add_consumption_average_hh(consumption_all):
     co_name = consumption_all.get('database')
     option = consumption_all.get('agg_option')
     n_households = consumption_all.get('n_households')
-    co = bw.Database(co_name)
+    co = bd.Database(co_name)
     co_average_act_name = 'ch hh average consumption {}'.format(option)
     try: co.get(co_average_act_name).delete()
     except: pass
@@ -664,15 +678,24 @@ def add_consumption_activities(
         habe_year='091011',
         option='disaggregated',
 ):
+    # Delete all existing consumption activities
+    co = bd.Database(co_name)
+    [act.delete() for act in co.search("consumption disaggregated")]
+    [act.delete() for act in co.search("consumption aggregated")]
+
+    # Add new consumption activities
     add_consumption_all_hh(co_name, habe_path, habe_year='091011', option='disaggregated', )
     add_consumption_all_hh(co_name, habe_path, habe_year='091011', option='aggregated', )
-    co = bw.Database(co_name)
+
     demand_act_dis = co.search('consumption disaggregated')[0]
     demand_act_agg = co.search('consumption aggregated')[0]
     dict_dis = {a.input: a.amount for a in demand_act_dis.exchanges() if a['type'] == 'technosphere'}
     dict_agg = {b.input: b.amount for b in demand_act_agg.exchanges() if b['type'] == 'technosphere'}
 
-    add_inputs = list(set(dict_dis.keys()) - set(dict_agg.keys()))
+    demand_act_dis_dict = {k['name']: v for k,v in dict_dis.items()}
+    demand_act_agg_dict = {k['name']: v for k,v in dict_agg.items()}
+
+    add_inputs = list( set(dict_dis.keys()) - set(dict_agg.keys()) )
     fix_amounts = {}
     for input_, amount_dis in dict_dis.items():
         amount_agg = dict_agg.get(input_, np.nan)
@@ -684,6 +707,7 @@ def add_consumption_activities(
 
     add_consumption_all_hh(co_name, habe_path, habe_year=habe_year, option=option, )
     demand = co.search('consumption aggregated')
+    print(demand)
     assert len(demand) == 1
     demand = demand[0]
     n_households_new = demand['n_households']
@@ -703,10 +727,26 @@ def add_consumption_activities(
 
     add_consumption_average_hh(demand)
 
+    write_dir = Path("write_files")
+    path_demand_comparison = write_dir / "comparison_total_demands.xlsx"
+    demand_new_dict = {c.input['name']: c.amount for c in demand.exchanges() if c['type'] == 'technosphere'}
+    dis_agg_ratio = {k: demand_act_agg_dict.get(k,0)/v for k,v in demand_act_dis_dict.items()}
+    dis_new_ratio = {k:     demand_new_dict.get(k,0)/v for k,v in demand_act_dis_dict.items()}
+    df = pd.DataFrame.from_dict(
+        {
+            'Froemelt': demand_act_dis_dict,
+            'HABE 091011': demand_act_agg_dict,
+            'HABE 091011 / Froemelt': dis_agg_ratio,
+            'HABE {}'.format(habe_year): demand_new_dict,
+            'HABE {} / Froemelt'.format(habe_year): dis_new_ratio,
+        }
+    )
+    df.to_excel(path_demand_comparison)
+
 
 
 def add_consumption_categories(co_name, co_path):
-    co = bw.Database(co_name)
+    co = bd.Database(co_name)
 
     sheet_name = 'Overview & LCA-Modeling'
     df_raw = pd.read_excel(co_path, sheet_name = sheet_name, header=2)
@@ -746,7 +786,7 @@ def add_consumption_sectors(co_name):
     '''
     Add consumption sectors as separate activities in the consumption database
     '''
-    co = bw.Database(co_name)
+    co = bd.Database(co_name)
     demand_act = co.search("ch hh average consumption")[0]
 
     cat_option = 'category_coarse'

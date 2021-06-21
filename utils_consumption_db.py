@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
+import bw2data as bd
+
 import pandas as pd
 import numpy as np
 from copy import copy, deepcopy
 import os, json
 import re
-import brightway2 as bw
 import country_converter as coco
 import warnings
 from pathlib import Path
@@ -249,19 +250,19 @@ def append_one_exchange(df, df_ind_j, ConversionDem2FU, exclude_dbs=[], replace_
                     * original_cfl \
                     * ConversionDem2FU
 
-    if db_name == 'ecoinvent 3.3 cutoff' and 'ecoinvent 3.3 cutoff' not in bw.databases:
-        current_project = deepcopy(bw.projects.current)
-        bw.projects.set_current('ecoinvent 3.3 cutoff') # Temporarily switch to ecoinvent 3.3 project
-        act_bw = bw.get_activity(original_db_code_tuple)
-        bw.projects.set_current(current_project)
+    if db_name == 'ecoinvent 3.3 cutoff' and 'ecoinvent 3.3 cutoff' not in bd.databases:
+        current_project = deepcopy(bd.projects.current)
+        bd.projects.set_current('ecoinvent 3.3 cutoff') # Temporarily switch to ecoinvent 3.3 project
+        act_bw = bd.get_activity(original_db_code_tuple)
+        bd.projects.set_current(current_project)
         input_act_values_dict = create_input_act_dict(act_bw, computed_amount)
     else:
         try:
             # Find activity using bw functionality
-            act_bw = bw.get_activity(original_db_code_tuple)
+            act_bw = bd.get_activity(original_db_code_tuple)
             input_act_values_dict = create_input_act_dict(act_bw, computed_amount)
         except:
-            # If bw.get_activity does not work for whichever reason, fill info manually
+            # If bd.get_activity does not work for whichever reason, fill info manually
             if replace_agribalyse_with_ei and "agribalyse" in db_name.lower():
                 db_name = CONSUMPTION_DB_NAME
             input_act_values_dict = bw_get_activity_info_manually(original_str, db_name, computed_amount)
@@ -311,15 +312,15 @@ def append_one_exchange(df, df_ind_j, ConversionDem2FU, exclude_dbs=[], replace_
     
 #     try:
 #         # Find activity in the ecoinvent 3.3 cutoff using bw functionality
-#         current_project = deepcopy(bw.projects.current)
-#         bw.projects.set_current('ecoinvent 3.3 cutoff') # Temporarily switch to ecoinvent 3.3 project
-#         act_bw = bw.get_activity(input_act_db_code_tuple)
-#         bw.projects.set_current(current_project)
+#         current_project = deepcopy(bd.projects.current)
+#         bd.projects.set_current('ecoinvent 3.3 cutoff') # Temporarily switch to ecoinvent 3.3 project
+#         act_bw = bd.get_activity(input_act_db_code_tuple)
+#         bd.projects.set_current(current_project)
 #         input_act_values_dict = create_input_act_dict(act_bw, input_act_amount)
         
         
 #     except:
-#         # If bw.get_activity does not work for whichever reason, fill info manually
+#         # If bd.get_activity does not work for whichever reason, fill info manually
 #         input_act_values_dict = bw_get_activity_info_manually(input_act_str, db_name, input_act_amount)
         
 #     # Add exchange to the dataframe with database in brightway format
@@ -530,7 +531,7 @@ def update_all_db(
 #     # and to be consistent with the most updated exiobase Swiss final demand.
 #
 #     # 1. Find activities in the consumption database that have exchanges from all regionalized exiobase sectors
-#     co = bw.Database(CONSUMPTION_DB_NAME)
+#     co = bd.Database(CONSUMPTION_DB_NAME)
 #     acts_to_modify = {}
 #     exiobase_set = set()
 #     for act in co:
@@ -585,7 +586,7 @@ def update_all_db(
 #     # 4. Replace old exiobase exchanges with new ones
 #     chf_to_euro_2007 = 0.594290
 #     chf_to_euro_2015 = 0.937234
-#     ex = bw.Database(ex_name)
+#     ex = bd.Database(ex_name)
 #     l = len(acts_to_modify)
 #     iact = 0
 #     for act_to_modify, excs_all in acts_to_modify.items():

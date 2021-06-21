@@ -133,16 +133,19 @@ for code,name_unit in codes_names.items():
         tickvals=[1, 2, 3],
         ticktext=['2009-2011', '2012-2014', '2015-2017', ],
     )
-    # bins, _ = np.histogram(x_all_filtered)
+
+    num_bins = 50
+    x_all_no_outliers = x_all[x_all < np.quantile(x_all, .99)]
+    x_all_no_zeros = x_all[x_all != 0]
+    bins_no_outliers = np.linspace(min(x_all_no_outliers), max(x_all_no_outliers), num_bins, endpoint=True)
+    bins_no_zeros = np.linspace(min(x_all_no_zeros), max(x_all_no_zeros), num_bins, endpoint=True)
+
     for year, df in data_all_years.items():
+        x = df[code].values
         # Histogram
         col = 2
-        x_all_filtered = x_all[x_all < np.quantile(x_all, .99)]
-        n_removed = len(x_all) - len(x_all_filtered)
-        num_bins = 50
-        bins_ = np.linspace(min(x_all_filtered), max(x_all_filtered), num_bins, endpoint=True)
-        x = df[code].values
-        freq, bins = np.histogram(x, bins=bins_)
+        x_no_outliers = x[x < np.quantile(x_all, .99)]
+        freq, bins = np.histogram(x_no_outliers, bins=bins_no_outliers)
         fig.add_trace(
             go.Bar(
                 x=bins,
@@ -166,16 +169,13 @@ for code,name_unit in codes_names.items():
             row=row,
             col=col
         )
-        # if year=='2009-2011' and col==2:
-        #     k = (row-1)*3+col-1
-        #     fig.layout.annotations[k]['text'] += ', lowest {:3.1f}% of values'.format(len(x_all_filtered)/len(x_all)*100)
+        if year=='2009-2011' and col==3:
+            k = (row - 1) * 3 + col-1
+            fig.layout.annotations[k]['text'] += ', {:3.1f}% of values'.format(len(x_all_no_outliers)/len(x_all)*100)
+
         col = 3
-        x_all_filtered = x_all[x_all > 0]
-        n_removed = len(x_all) - len(x_all_filtered)
-        num_bins = 50
-        bins_ = np.linspace(min(x_all_filtered), max(x_all_filtered), num_bins, endpoint=True)
-        x = df[code].values
-        freq, bins = np.histogram(x, bins=bins_)
+        x_no_zeros = x[x > 0]
+        freq, bins = np.histogram(x_no_zeros, bins=bins_no_zeros)
         fig.add_trace(
             go.Bar(
                 x=bins,
@@ -201,7 +201,7 @@ for code,name_unit in codes_names.items():
         )
         if year=='2009-2011' and col==3:
             k = (row - 1) * 3 + col-1
-            fig.layout.annotations[k]['text'] += ', {:3.1f}% of values'.format(len(x_all_filtered)/len(x_all)*100)
+            fig.layout.annotations[k]['text'] += ', {:3.1f}% of values'.format(len(x_all_no_zeros)/len(x_all)*100)
     showlegend = False
     row += 1
 

@@ -1,4 +1,5 @@
-import brightway2 as bw
+import bw2data as bd
+import bw2calc as bc
 from pypardiso import spsolve
 import numpy as np
 
@@ -16,11 +17,11 @@ class exiobaseLCA:
     ):
         # BW / LCA setup
         self.project = project
-        bw.projects.set_current(self.project)
+        bd.projects.set_current(self.project)
         self.demand = demand
         self.exiobase_scores_precomputed = exiobase_scores_precomputed
         self.methods = list(list(exiobase_scores_precomputed.values())[0].keys())
-        self.lca = bw.LCA(self.demand, self.methods[0])
+        self.lca = bc.LCA(self.demand, self.methods[0])
         self.lca.lci()
         self.lca.lcia()
         self.lca.build_demand_array()
@@ -107,7 +108,7 @@ class exiobaseLCA:
         act_inds = np.where(self.d_exiobase_adjusted != 0)[0]
         weights = {}
         for act in act_inds:
-            bw_act = bw.get_activity(reverse_dict[act]).as_dict()['key']
+            bw_act = bd.get_activity(reverse_dict[act]).as_dict()['key']
             weights[bw_act] = self.d_exiobase_adjusted[act]
         return weights
 

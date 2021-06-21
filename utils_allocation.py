@@ -1,4 +1,4 @@
-import brightway2 as bw
+import bw2data as bd
 from copy import deepcopy
 
 from bw2io.utils import rescale_exchange # rescales uncertainties as well
@@ -57,7 +57,7 @@ def get_allocated_excs(db, mapping, db_name):
             vols = 0
             codes = list(mapping[m].values())[0]
             for code in codes:
-                act = bw.get_activity((db_name, code))
+                act = bd.get_activity((db_name, code))
                 production_exc = next(item for item in act.exchanges() if item['type']=='production')
                 vol = production_exc['production volume']
                 vols += vol
