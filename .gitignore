@@ -116,5 +116,6 @@ Data/for Andi
 write_files/*
 global_settings.json
 data_private
+files_private
 code_Andi
 .idea/
