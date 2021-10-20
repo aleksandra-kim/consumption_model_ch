@@ -19,6 +19,7 @@ from utils_consumption_db import *
 # ## Ecoinvent ###
 # ################
 
+
 def import_ecoinvent(ei_path, ei_name):
     if ei_name in bd.databases:
         print(ei_name + " database already present!!! No import is needed")
@@ -28,6 +29,7 @@ def import_ecoinvent(ei_path, ei_name):
         ei.match_database(db_name='biosphere3',fields=('name', 'category', 'unit', 'location'))
         ei.statistics()
         ei.write_database()
+
 
 def create_ecoinvent_33_project(ei33_path, ei33_name="ecoinvent 3.3 cutoff" ):
     current_project = deepcopy(bd.projects.current)
@@ -42,21 +44,21 @@ def create_ecoinvent_33_project(ei33_path, ei33_name="ecoinvent 3.3 cutoff" ):
 # ## Exiobase ###
 # ###############
 
-def import_exiobase_22(ex22_path, ex22_name='EXIOBASE 2.2'):
-    from bw2io.importers.exiobase2 import Exiobase22Importer
-    if ex22_name in bd.databases:
-        print(ex22_name + " database already present!!! No import is needed")
-    else:
-        ex22 = Exiobase22Importer(ex22_path, ex22_name)
-        ex22.apply_strategies()
-        ex22.write_database()
+# def import_exiobase_22(ex22_path, ex22_name='EXIOBASE 2.2'):
+#     from bw2io.importers import Exiobase22Importer
+#     if ex22_name in bd.databases:
+#         print(ex22_name + " database already present!!! No import is needed")
+#     else:
+#         ex22 = Exiobase22Importer(ex22_path, ex22_name)
+#         ex22.apply_strategies()
+#         ex22.write_database()
         
 def import_exiobase_3(ex3_path, ex3_name):
-    from bw2io.importers.exiobase3 import Exiobase3Importer
+    from bw2io.importers.exiobase3_monetary import Exiobase3MonetaryImporter
     if ex3_name in bd.databases:
         print("{} database already present!!! No import is needed".format(ex3_name))
     else:
-        ex = Exiobase3Importer(ex3_path, ex3_name) # give path to IOT_year_pxp folder
+        ex = Exiobase3MonetaryImporter(ex3_path, ex3_name) # give path to IOT_year_pxp folder
         ex.apply_strategies()
         ex.write_database()
 
@@ -300,6 +302,7 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
         else:
             print("Some exchanges are still unlinked")
             print(list(agg.unlinked))
+
 
 def import_consumption_db(
     co_path, 
