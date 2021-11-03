@@ -9,7 +9,6 @@ import re
 import country_converter as coco
 import warnings
 from pathlib import Path
-import pickle
 
 ###########################
 # ## 1. Define constants ###

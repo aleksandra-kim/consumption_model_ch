@@ -40,7 +40,7 @@ def get_allocated_excs(db, mapping, db_name):
 
     unlinked_names_loc = [0]*len_unlinked
     for i in range(len_unlinked):
-        unlinked_names_loc[i] =  (unlinked_list[i]['name'], unlinked_list[i]['location'])
+        unlinked_names_loc[i] = (unlinked_list[i]['name'], unlinked_list[i]['location'])
                
     unlinked_list_used = []
     allocated_excs = []
@@ -58,7 +58,7 @@ def get_allocated_excs(db, mapping, db_name):
             codes = list(mapping[m].values())[0]
             for code in codes:
                 act = bd.get_activity((db_name, code))
-                production_exc = next(item for item in act.exchanges() if item['type']=='production')
+                production_exc = next(item for item in act.exchanges() if item['type'] == 'production')
                 vol = production_exc['production volume']
                 vols += vol
                 exc = deepcopy(unlinked_list[index])

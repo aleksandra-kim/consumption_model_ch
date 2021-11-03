@@ -1,19 +1,29 @@
-import bw2calc as bc
 import bw2data as bd
 import bw2io as bi
 
 import pandas as pd
 import numpy as np
-from copy import copy
+from copy import deepcopy
 import os, json
 from pathlib import Path
 import re
 import string
-# import bw2io
 
 # Local files
-from utils_allocation import *
-from utils_consumption_db import *
+from .utils_allocation import modify_exchanges
+from .utils_consumption_db import (
+    CONSUMPTION_DB_NAME,
+    N_ACT_RELEVANT,
+    create_df_bw,
+    get_units_habe,
+    complete_columns,
+    append_activity,
+    append_exchanges,
+    update_all_db,
+    link_exiobase,
+)
+
+DATADIR = Path(__file__).parent.resolve() / "data"
 
 # ################
 # ## Ecoinvent ###
@@ -31,7 +41,7 @@ def import_ecoinvent(ei_path, ei_name):
         ei.write_database()
 
 
-def create_ecoinvent_33_project(ei33_path, ei33_name="ecoinvent 3.3 cutoff" ):
+def create_ecoinvent_33_project(ei33_path, ei33_name="ecoinvent 3.3 cutoff"):
     current_project = deepcopy(bd.projects.current)
     bd.projects.set_current(ei33_name) # Temporarily switch to ecoinvent 3.3 project
     bi.bw2setup()
@@ -90,7 +100,7 @@ def import_agribalyse12(ag12_path, ei_name, ag12_name='Agribalyse 1.2'):
 
         from bw2io.strategies import link_iterable_by_fields
         import functools
-        ag12_ei.apply_strategy(functools.partial(link_iterable_by_fields, other=bw.Database("biosphere3"), kind="biosphere"))
+        ag12_ei.apply_strategy(functools.partial(link_iterable_by_fields, other=bd.Database("biosphere3"), kind="biosphere"))
 
         ag12_ei.write_excel(True)
         
@@ -305,8 +315,7 @@ def import_agribalyse_13(ag13_path, ei_name, ag13_name='Agribalyse 1.3'):
 
 
 def import_consumption_db(
-    co_path, 
-    habe_path, 
+    habe_path,
     exclude_dbs=[], 
     co_name=CONSUMPTION_DB_NAME, 
     habe_year='091011',
@@ -323,6 +332,7 @@ def import_consumption_db(
     - habe_year can also be 121314 or 151617
     '''
 
+    co_path = DATADIR / "es8b01452_si_002.xlsx"
     if co_name in bd.databases:
         print(co_name + " database already present!!! No import is needed")
     else:
@@ -346,39 +356,43 @@ def import_consumption_db(
         # Parse Andi's excel file
         act_indices = df.index[df['ConversionDem2FU'].notna()].tolist()  # indices of all activities
         exclude_dbs = [edb.lower() for edb in exclude_dbs]
-        print("--> Creating consumption_db.xlsx")
-        for ind in act_indices:
-            # For each row
-            df_ind = df.iloc[ind]
-            df_ind = df_ind[df_ind.notna()]
-            # Add activity
-            df_bw, df_act = append_activity(df_bw, df_ind[:N_ACT_RELEVANT],
-                                            code_unit)  # only pass columns relevant to this function
-            # Add exchanges
-            df_bw = append_exchanges(
-                df_bw,
-                df_ind,
-                df_act,
-                exclude_dbs=exclude_dbs,
-                replace_agribalyse_with_ei=replace_agribalyse_with_ei
-            )
-        df_bw.columns = list(string.ascii_uppercase[:len(df_bw.columns)])
-        # Update to relevant databases and save excel file
-        if "3.7.1" in ei_name:
-            use_ecoinvent_371 = True
-        else:
-            use_ecoinvent_371 = False
-        
-        ag_name = 'Agribalyse 1.3 - {}'.format(ei_name)
-        if replace_agribalyse_with_ei:
-            df_agribalyse_ei = pd.read_excel("data/agribalyse_replaced_with_ecoinvent.xlsx")
-            df_bw = df_bw.append(df_agribalyse_ei, ignore_index=True)
-
         write_dir = Path(write_dir)
         write_dir.mkdir(parents=True, exist_ok=True)
         path_new_db = write_dir / 'consumption_db.xlsx'
-        df_bw = update_all_db(df_bw, use_ecoinvent_371=use_ecoinvent_371)
-        df_bw.to_excel(path_new_db, index=False, header=False)
+        if not path_new_db.exists():
+            print("--> Creating consumption_db.xlsx")
+            for ind in act_indices:
+                # For each row
+                df_ind = df.iloc[ind]
+                df_ind = df_ind[df_ind.notna()]
+                # Add activity
+                df_bw, df_act = append_activity(df_bw, df_ind[:N_ACT_RELEVANT],
+                                                code_unit)  # only pass columns relevant to this function
+                # Add exchanges
+                df_bw = append_exchanges(
+                    df_bw,
+                    df_ind,
+                    df_act,
+                    exclude_dbs=exclude_dbs,
+                    replace_agribalyse_with_ei=replace_agribalyse_with_ei
+                )
+            df_bw.columns = list(string.ascii_uppercase[:len(df_bw.columns)])
+            # Update to relevant databases and save excel file
+            if "3.7.1" in ei_name:
+                use_ecoinvent_371 = True
+            else:
+                use_ecoinvent_371 = False
+
+            ag_name = 'Agribalyse 1.3 - {}'.format(ei_name)
+            if replace_agribalyse_with_ei:
+                df_agribalyse_ei = pd.read_excel(DATADIR / "agribalyse_replaced_with_ecoinvent.xlsx")
+                df_bw = df_bw.append(df_agribalyse_ei, ignore_index=True)
+
+            df_bw = update_all_db(df_bw, use_ecoinvent_371=use_ecoinvent_371)
+            df_bw.to_excel(path_new_db, index=False, header=False)
+
+        else:
+            print("--> Consumption_db.xlsx already exists, reading it")
 
         ### 2. Link to other databases
         #########
@@ -391,26 +405,35 @@ def import_consumption_db(
 
         ### 3. Define a migration for particular activities that can only be hardcoded
         #########
-        if "3.5" in ei_name or "3.6" in ei_name or "3.7" in ei_name:
+        if "3.5" in ei_name or "3.6" in ei_name or "3.7" in ei_name or "3.8" in ei_name:
             print("Migration for 'steam production in chemical industry' and 'market for green bell pepper'")
-            ecoinvent_35_36_37_change_names_data = json.load(open("data/migrations/ecoinvent-3.5-3.6-3.7.1.json"))
-            bi.Migration("ecoinvent-35-36-37-change-names").write(
-                ecoinvent_35_36_37_change_names_data,
+            ecoinvent_35_36_37_38_change_names_data = json.load(open(DATADIR / "migrations" / "ecoinvent-3.5-3.6-3.7.1-3.8.json"))
+            bi.Migration("ecoinvent-35-36-37-38-change-names").write(
+                ecoinvent_35_36_37_38_change_names_data,
                 description="Change names of some activities"
             )
-            co.migrate('ecoinvent-35-36-37-change-names')
+            co.migrate('ecoinvent-35-36-37-38-change-names')
             co.match_database(ei_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
 
         ### 4. Define a migration for rice production and specific locations
         #########
         # These locations have only non-basmati rice production
-        if "3.6" in ei_name or "3.7" in ei_name:
-            ecoinvent_36_371_rice_nonbasmati = json.load(open("data/migrations/ecoinvent-3.6-3.7.1.json"))
-            bi.Migration("ecoinvent-36-371-rice-nonbasmati").write(
-                ecoinvent_36_371_rice_nonbasmati,
+        if "3.6" in ei_name or "3.7" in ei_name or "3.8" in ei_name:
+            ecoinvent_36_371_38_rice_nonbasmati = json.load(open(DATADIR / "migrations" / "ecoinvent-3.6-3.7.1-3.8.json"))
+            bi.Migration("ecoinvent-36-371-38-rice-nonbasmati").write(
+                ecoinvent_36_371_38_rice_nonbasmati,
                 description="Change names of some activities"
             )
-            co.migrate('ecoinvent-36-371-rice-nonbasmati')
+            co.migrate('ecoinvent-36-371-38-rice-nonbasmati')
+            co.match_database(ei_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
+
+        if "3.8" in ei_name:
+            ecoinvent_38_marine_fish = json.load(open(DATADIR / "migrations" / "ecoinvent-3.8.json"))
+            bi.Migration("ecoinvent-38-marine-fish").write(
+                ecoinvent_38_marine_fish,
+                description="Change reference product"
+            )
+            co.migrate('ecoinvent-38-marine-fish')
             co.match_database(ei_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
 
         ### 5. Manually choose which ecoinvent exchanges should be taken for each unlinked exchange
@@ -496,6 +519,7 @@ def import_consumption_db(
         # co.migrate('exiobase-381-change-locations')
         co.statistics()
         if len(list(co.unlinked)) == 0:
+            print("Writing consumption database")
             co.write_database()
         else:
             print("Some exchanges are still unlinked")
@@ -504,19 +528,19 @@ def import_consumption_db(
             co_diff_name = bd.Database(CONSUMPTION_DB_NAME)
             co_diff_name.rename(co_name)
 
-    # Sum up repetitive exchanges
-    co = bd.Database(co_name)
-    for act in co:
-        excs = [exc.input for exc in act.exchanges()]
-        rep_inputs = {exc for exc in excs if excs.count(exc) > 1}
-        for rep_input in rep_inputs:
-            amounts = [exc.amount for exc in act.exchanges() if exc.input == rep_input]
-            [exc.delete() for exc in act.exchanges() if exc.input == rep_input]
-            act.new_exchange(
-                input=rep_input,
-                amount=sum(amounts),
-                type='technosphere'
-            ).save()
+        # Sum up repetitive exchanges
+        co = bd.Database(co_name)
+        for act in co:
+            excs = [exc.input for exc in act.exchanges()]
+            rep_inputs = {exc for exc in excs if excs.count(exc) > 1}
+            for rep_input in rep_inputs:
+                amounts = [exc.amount for exc in act.exchanges() if exc.input == rep_input]
+                [exc.delete() for exc in act.exchanges() if exc.input == rep_input]
+                act.new_exchange(
+                    input=rep_input,
+                    amount=sum(amounts),
+                    type='technosphere'
+                ).save()
 
             
             
@@ -614,7 +638,7 @@ def add_consumption_all_hh(
         df = df.reset_index()
         
     elif option == 'disaggregated':
-        path = 'data/habe20092011_hh_prepared_imputed.csv'
+        path = DATADIR / 'habe20092011_hh_prepared_imputed.csv'
         df = pd.read_csv(path, low_memory=False)
         n_households = df.shape[0]
         df = df.drop('haushaltid', axis=1).sum()
@@ -747,12 +771,59 @@ def add_consumption_activities(
     df.to_excel(path_demand_comparison)
 
 
+def add_archetypes_consumption(co_name, archetypes_path,):
+    co = bd.Database(co_name)
+    df = pd.read_csv(archetypes_path)
+    all_consumption_codes = [act['code'] for act in co]
+    codes_to_ignore = [code for code in df.iloc[0].index if code not in all_consumption_codes]
+    codes_to_modify = {
+        code: "a{}".format(code[2:]) for code in codes_to_ignore
+        if code[:2]=='mx' and "a{}".format(code[2:]) in all_consumption_codes
+    }
+    print(codes_to_modify)
+    for i, df_row in df.iterrows():
+        label = df_row['cluster_label_name']
+        print("Creating consumption activity of archetype {}".format(label))
+        # Create new activity
+        act_name = "archetype_{}_consumption".format(label)
+        try:
+            co.get(act_name).delete()
+        except:
+            pass
+        archetype_act = co.new_activity(
+            act_name,
+            name=act_name,
+            location='CH',
+            unit='1 month of consumption',
+            cluster_label_def = df_row['cluster_label_def']
+        )
+        archetype_act.save()
+        # Add exchanges to this activity
 
-def add_consumption_categories(co_name, co_path):
+        for code in df_row.index:
+            if ("cg" not in code) and ("cluster" not in code) and (code not in codes_to_ignore):
+                archetype_act.new_exchange(
+                    input=(co.name, code),
+                    amount=df_row[code],
+                    type='technosphere'
+                ).save()
+        for code in codes_to_modify.keys():
+            archetype_act.new_exchange(
+                input=(co.name, codes_to_modify[code]),
+                amount=df_row[code],
+                type='technosphere'
+            ).save()
+
+    return
+
+
+
+def add_consumption_categories(co_name):
     co = bd.Database(co_name)
 
     sheet_name = 'Overview & LCA-Modeling'
-    df_raw = pd.read_excel(co_path, sheet_name = sheet_name, header=2)
+    co_path = DATADIR / "es8b01452_si_002.xlsx"
+    df_raw = pd.read_excel(co_path, sheet_name=sheet_name, header=2)
 
     categories_col_de = 'Original name in Swiss household budget survey'
     categories_col_en = 'Translated name'
