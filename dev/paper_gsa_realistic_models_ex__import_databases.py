@@ -74,9 +74,9 @@ if __name__ == "__main__":
         pass
     co = import_consumption_db(
         habe_path,
-        exclude_dbs=exclude_dbs,
+        exclude_databases=exclude_dbs,
         ei_name=ei38_name,
-        ex_path=ex381_path,
+        exiobase_path=ex381_path,
         sut_path=sut_path,
     )
     add_consumption_activities(co_name, habe_path, habe_year, option='aggregated',) #TODO check if this option is correct
