@@ -655,8 +655,8 @@ def concat_margins_df(margins_filepath):
     return df_margins, labels
 
 
-def get_margins_shares(margins_filepath):
-    exiobase_381_change_names_data = json.load(open("data/migrations/exiobase-3.8.1.json"))
+def get_margins_shares(margins_filepath, migrations_exiobase_filepath):
+    exiobase_381_change_names_data = json.load(open(migrations_exiobase_filepath))
     exiobase_381_change_names_dict = {}
     for el in exiobase_381_change_names_data['data']:
         old_name = el[0][0]
@@ -687,7 +687,7 @@ def get_margins_shares(margins_filepath):
     return df_margins
 
 
-def link_exiobase(co, ex_name, ex_path, margins_filepath):
+def link_exiobase(co, ex_name, ex_path, margins_filepath, migrations_exiobase_filepath):
     exiobase_dict = {}
     all_exiobase_acts = set()
     exiobase_trade_margin_sectors = set()
@@ -768,7 +768,7 @@ def link_exiobase(co, ex_name, ex_path, margins_filepath):
         sum_ += value
     exiobase_trade_margin_sectors_dict = {k: v / sum_ for k, v in exiobase_trade_margin_sectors_dict.items()}
 
-    df_margins = get_margins_shares(margins_filepath)
+    df_margins = get_margins_shares(margins_filepath, migrations_exiobase_filepath)
     dict_margins = df_margins.T.to_dict()
 
     mln_to_unit = 1e-6

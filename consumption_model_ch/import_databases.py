@@ -320,7 +320,7 @@ def import_consumption_db(
     co_name=CONSUMPTION_DB_NAME, 
     habe_year='091011',
     ei_name="ecoinvent 3.7.1 cutoff",
-    write_dir="write_files",
+    write_dir=None,
     replace_agribalyse_with_ei=True,
     ex_path=None,
     sut_path=None,
@@ -331,6 +331,10 @@ def import_consumption_db(
     - Ecoinvent 3.3 is needed since reference product is taken from there. for that we create a new project with only ecoinvent 3.3
     - habe_year can also be 121314 or 151617
     '''
+
+    if write_dir is None:
+        write_dir = Path('write_files') / bd.projects.current.lower().replace(" ", "_")
+        write_dir.mkdir(exist_ok=True, parents=True)
 
     co_path = DATADIR / "es8b01452_si_002.xlsx"
     if co_name in bd.databases:
@@ -493,10 +497,11 @@ def import_consumption_db(
                 if "exiobase" in db_name.lower():
                     ex_name = db_name
             print("--> Linking to {}".format(ex_name))
+            migrations_exiobase_filepath = DATADIR / "migrations" / "exiobase-3.8.1.json"
             if "3.8.1" in ex_name:
                 print("Migration for {}".format(ex_name))
                 # Only based on the `name` field
-                exiobase_381_change_names_data = json.load(open("data/migrations/exiobase-3.8.1.json"))
+                exiobase_381_change_names_data = json.load(open(migrations_exiobase_filepath))
                 bi.Migration("exiobase-381-change-names").write(
                     exiobase_381_change_names_data,
                     description="Change names of some exiobase 3.8.1 activities"
@@ -507,7 +512,7 @@ def import_consumption_db(
                 margins_path = Path(sut_path) / 'CH_2007.xls'
         # return co
 
-            co = link_exiobase(co, ex_name, ex_path, margins_path)
+            co = link_exiobase(co, ex_name, ex_path, margins_path, migrations_exiobase_filepath)
             co.match_database(ex_name, fields=('name', 'unit', 'location',))
 
         # # Rename RoW locations
