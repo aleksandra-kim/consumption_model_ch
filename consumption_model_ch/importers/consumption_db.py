@@ -1,15 +1,41 @@
+from time import time
+
 from bw2io.importers.base_lci import LCIImporter
+from ..extractors.consumption_db import ConsumptionDbExtractor
 
 
 class ConsumptionDbImporter(LCIImporter):
-    format = "Ecospold1 LCIA"
+    format = "ConsumptionDB Excel"
 
     def __init__(
         self,
-        filepath,
+        directory,
         name=None,
+        year='091011',
+        exclude_databases=(),
+        replace_agribalyse_with_ecoinvent=True,
     ):
-        print()
+        start = time()
+        self.df, self.filepath_consumption_excel = ConsumptionDbExtractor.extract(
+            directory,
+            name=name,
+            year=year,
+            exclude_databases=exclude_databases,
+            replace_agribalyse_with_ecoinvent=replace_agribalyse_with_ecoinvent,
+        )
+        print(
+            u"Created consumption_db.xlsx file in BW format in {:.2f} seconds".format(
+                time() - start
+            )
+        )
+        self.strategies = []
+
+    def write_database(self, data=None, name=None, *args, **kwargs):
+        db = super(ConsumptionDbImporter, self).write_database(data, name, *args, **kwargs)
+        db.metadata["Path to consumption database in BW excel format"] = self.filepath_consumption_excel
+        db._metadata.flush()
+        return db
+
 
 # 4. Link to other databases
 #     co = bi.ExcelImporter(path_new_db)
