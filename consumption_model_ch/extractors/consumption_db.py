@@ -48,8 +48,6 @@ UNIT_DICT = {
 }
 # Which column stores database name
 DB_COLUMN = 'F'
-# Default name of the consumption database
-CONSUMPTION_DB_NAME = 'CH consumption 1.0'
 
 
 class ConsumptionDbExtractor(object):
@@ -58,7 +56,7 @@ class ConsumptionDbExtractor(object):
     def extract(
         cls,
         directory,
-        name=None,
+        name,
         year='091011',
         exclude_databases=(),
         replace_agribalyse_with_ecoinvent=True,
@@ -123,9 +121,9 @@ class ConsumptionDbExtractor(object):
 
     @staticmethod
     def get_habe_filepath(directory, year, tag):
-        files = [x for x in directory if x.is_file() and (year in x) and (tag in x)]
+        files = [x for x in directory.iterdir() if (year in x.name) and (tag in x.name)]
         assert len(files) == 1
-        return directory / files[0]
+        return files[0]
 
     @classmethod
     def extract_habe_units(cls, directory, year):
@@ -161,7 +159,7 @@ class ConsumptionDbExtractor(object):
     def get_consumption_df(
             cls,
             directory,
-            name=None,
+            name,
             year='091011',
             exclude_databases=(),
             replace_agribalyse_with_ecoinvent=True,
@@ -189,7 +187,7 @@ class ConsumptionDbExtractor(object):
     def create_consumption_excel(
             cls,
             directory,
-            name=None,
+            name,
             year='091011',
             exclude_databases=(),
             replace_agribalyse_with_ecoinvent=True,
@@ -199,10 +197,9 @@ class ConsumptionDbExtractor(object):
         exclude_databases = [exclude_db.lower() for exclude_db in exclude_databases]
         # Read consumption excel into a dataframe
         df_consumption = get_consumption_df()
+        df_consumption = cls.complete_columns(df_consumption)
         # Create an empty dataframe in brightway format
-        db_name = name or CONSUMPTION_DB_NAME
-        df_brightway = cls.create_empty_brightway_df(db_name)
-        df_brightway = cls.complete_columns(df_brightway)
+        df_brightway = cls.create_empty_brightway_df(name)
 
         # Add activities and exchanges into brightway dataframe
         code_unit = cls.extract_habe_units(directory, year)
@@ -218,7 +215,7 @@ class ConsumptionDbExtractor(object):
                 df_brightway,
                 df_ind,
                 df_act,
-                db_name,
+                name,
                 exclude_dbs=exclude_databases,
                 replace_agribalyse_with_ei=replace_agribalyse_with_ecoinvent
             )
@@ -402,14 +399,14 @@ class ConsumptionDbExtractor(object):
         input_act_values_dict['comment'] = 'TODO could not find this activity'
         return input_act_values_dict
 
-    @classmethod
-    def replace_one_db(cls, df, db_old_name, db_new_name):
-        """Replace database name with a new one (eg in case a newer version is available)."""
-        df_updated = copy(df)
-        where = np.where(df_updated[DB_COLUMN] == db_old_name)[0]
-        if where.shape[0] != 0:
-            df_updated[DB_COLUMN][where] = db_new_name
-        return df_updated
+    # @classmethod
+    # def replace_one_db(cls, df, db_old_name, db_new_name):
+    #     """Replace database name with a new one (eg in case a newer version is available)."""
+    #     df_updated = copy(df)
+    #     where = np.where(df_updated[DB_COLUMN] == db_old_name)[0]
+    #     if where.shape[0] != 0:
+    #         df_updated[DB_COLUMN][where] = db_new_name
+    #     return df_updated
 
     @classmethod
     def append_exchanges_in_correct_columns(cls, df, dict_with_values):
@@ -504,8 +501,8 @@ class ConsumptionDbExtractor(object):
                 input_act_values_dict = cls.create_input_act_dict(act_bw, computed_amount)
             except:
                 # If bd.get_activity does not work for whichever reason, fill info manually
-                if replace_agribalyse_with_ei and "agribalyse" in db_name.lower():
-                    db_name = CONSUMPTION_DB_NAME
+                # if replace_agribalyse_with_ei and "agribalyse" in db_name.lower():
+                #     db_name = CONSUMPTION_DB_NAME TODO might need to uncomment, or fix this somewhere
                 input_act_values_dict = cls.bw_get_activity_info_manually(original_str, db_name, computed_amount)
 
         # Add exchange to the dataframe with database in brightway format

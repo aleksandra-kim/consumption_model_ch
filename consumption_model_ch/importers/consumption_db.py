@@ -1,7 +1,17 @@
 from time import time
+import functools
+from copy import deepcopy
 
+import bw2io as bi
+import bw2data as bd
 from bw2io.importers.base_lci import LCIImporter
+from bw2io.strategies import migrate_datasets, migrate_exchanges
+
 from ..extractors.consumption_db import ConsumptionDbExtractor
+from ..migrations import create_consumption_db_migrations
+
+# Default name of the consumption database
+CONSUMPTION_DB_NAME = 'CH consumption 1.0'
 
 
 class ConsumptionDbImporter(LCIImporter):
@@ -16,9 +26,10 @@ class ConsumptionDbImporter(LCIImporter):
         replace_agribalyse_with_ecoinvent=True,
     ):
         start = time()
+        self.name = name or CONSUMPTION_DB_NAME
         self.df, self.filepath_consumption_excel = ConsumptionDbExtractor.extract(
             directory,
-            name=name,
+            name=self.name,
             year=year,
             exclude_databases=exclude_databases,
             replace_agribalyse_with_ecoinvent=replace_agribalyse_with_ecoinvent,
@@ -28,13 +39,38 @@ class ConsumptionDbImporter(LCIImporter):
                 time() - start
             )
         )
-        self.strategies = []
+        co = bi.ExcelImporter(self.filepath_consumption_excel)
+        self.data = self.update_databases(co.data)
+        create_consumption_db_migrations()
+        self.strategies = [
+            functools.partial(migrate_datasets, migration="ecoinvent-35-36-37-38-change-names"),
+            functools.partial(migrate_datasets, migration="ecoinvent-36-371-38-rice-nonbasmati"),
+            functools.partial(migrate_datasets, migration="ecoinvent-38-marine-fish"),
+        ]
+
+    def update_databases(self, data):
+        # Figure out the new ecoinvent name
+        ei_name = [db for db in bd.databases if 'ecoinvent' in db.lower()]
+        assert len(ei_name) == 1
+        ei_name = ei_name[0]
+        # Replace `ecoinvent 3.3 cutoff` that was used in the original consumption model with the current ecoinvent
+        data_updated = deepcopy(data)
+        for act in data_updated:
+            for exc in act.get('exchanges', []):
+                if exc['database'] == 'ecoinvent 3.3 cutoff':
+                    exc.update(dict(database=ei_name))
+        return data_updated
 
     def write_database(self, data=None, name=None, *args, **kwargs):
         db = super(ConsumptionDbImporter, self).write_database(data, name, *args, **kwargs)
         db.metadata["Path to consumption database in BW excel format"] = self.filepath_consumption_excel
         db._metadata.flush()
         return db
+
+    # Migration("exiobase-381-change-names").write(
+    #     get_exiobase_migration_data(),
+    #     "Change names of some exiobase 3.8.1 activities",
+    # )
 
 
 # 4. Link to other databases
@@ -43,36 +79,36 @@ class ConsumptionDbImporter(LCIImporter):
 #     co.match_database(fields=('name', 'unit', 'location', 'categories'))
 #     co.match_database(ei_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
 #
-#     # 4.1 Ecoinvent
-#     # Define migration for particular activities that can only be hardcoded
-#     if "3.5" in ei_name or "3.6" in ei_name or "3.7" in ei_name or "3.8" in ei_name:
-#         print("Migration for 'steam production in chemical industry' and 'market for green bell pepper'")
-#         ecoinvent_35_36_37_38_change_names_data = json.load(open(DATADIR / "migrations" / "ecoinvent-3.5-3.6-3.7.1-3.8.json"))
-#         bi.Migration("ecoinvent-35-36-37-38-change-names").write(
-#             ecoinvent_35_36_37_38_change_names_data,
-#             description="Change names of some activities"
-#         )
-#         co.migrate('ecoinvent-35-36-37-38-change-names')
-#         co.match_database(ei_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
-#
-#     # Define a migration for rice production and specific locations
-#     if "3.6" in ei_name or "3.7" in ei_name or "3.8" in ei_name:
-#         ecoinvent_36_371_38_rice_nonbasmati = json.load(open(DATADIR / "migrations" / "ecoinvent-3.6-3.7.1-3.8.json"))
-#         bi.Migration("ecoinvent-36-371-38-rice-nonbasmati").write(
-#             ecoinvent_36_371_38_rice_nonbasmati,
-#             description="Change names of some activities"
-#         )
-#         co.migrate('ecoinvent-36-371-38-rice-nonbasmati')
-#         co.match_database(ei_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
-#
-#     if "3.8" in ei_name:
-#         ecoinvent_38_marine_fish = json.load(open(DATADIR / "migrations" / "ecoinvent-3.8.json"))
-#         bi.Migration("ecoinvent-38-marine-fish").write(
-#             ecoinvent_38_marine_fish,
-#             description="Change reference product"
-#         )
-#         co.migrate('ecoinvent-38-marine-fish')
-#         co.match_database(ei_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
+    # # 4.1 Ecoinvent
+    # # Define migration for particular activities that can only be hardcoded
+    # if "3.5" in ei_name or "3.6" in ei_name or "3.7" in ei_name or "3.8" in ei_name:
+    #     print("Migration for 'steam production in chemical industry' and 'market for green bell pepper'")
+    #     ecoinvent_35_36_37_38_change_names_data = json.load(open(DATADIR / "migrations" / "ecoinvent-3.5-3.6-3.7.1-3.8.json"))
+    #     bi.Migration("ecoinvent-35-36-37-38-change-names").write(
+    #         ecoinvent_35_36_37_38_change_names_data,
+    #         description="Change names of some activities"
+    #     )
+    #     co.migrate('ecoinvent-35-36-37-38-change-names')
+    #     co.match_database(ei_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
+
+    # # Define a migration for rice production and specific locations
+    # if "3.6" in ei_name or "3.7" in ei_name or "3.8" in ei_name:
+    #     ecoinvent_36_371_38_rice_nonbasmati = json.load(open(DATADIR / "migrations" / "ecoinvent-3.6-3.7.1-3.8.json"))
+    #     bi.Migration("ecoinvent-36-371-38-rice-nonbasmati").write(
+    #         ecoinvent_36_371_38_rice_nonbasmati,
+    #         description="Change names of some activities"
+    #     )
+    #     co.migrate('ecoinvent-36-371-38-rice-nonbasmati')
+    #     co.match_database(ei_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
+
+    # if "3.8" in ei_name:
+    #     ecoinvent_38_marine_fish = json.load(open(DATADIR / "migrations" / "ecoinvent-3.8.json"))
+    #     bi.Migration("ecoinvent-38-marine-fish").write(
+    #         ecoinvent_38_marine_fish,
+    #         description="Change reference product"
+    #     )
+    #     co.migrate('ecoinvent-38-marine-fish')
+    #     co.match_database(ei_name, fields=('name', 'reference product', 'unit', 'location', 'categories'))
 #
 #     # Manually choose which ecoinvent exchanges should be taken for each unlinked exchange
 #     # - The rest of the unlinked exchanges are not uniquely defined in ecoinvent 3.6 -> 1-to-multiple mapping.
@@ -125,15 +161,15 @@ class ConsumptionDbImporter(LCIImporter):
 #             if "exiobase" in db_name.lower():
 #                 ex_name = db_name
 #         print("--> Linking to {}".format(ex_name))
-#         migrations_exiobase_filepath = DATADIR / "migrations" / "exiobase-3.8.1.json"
-#         if "3.8.1" in ex_name:
-#             print("Migration for {}".format(ex_name))
-#             # Only based on the `name` field
-#             exiobase_381_change_names_data = json.load(open(migrations_exiobase_filepath))
-#             bi.Migration("exiobase-381-change-names").write(
-#                 exiobase_381_change_names_data,
-#                 description="Change names of some exiobase 3.8.1 activities"
-#             )
+    #     migrations_exiobase_filepath = DATADIR / "migrations" / "exiobase-3.8.1.json"
+    #     if "3.8.1" in ex_name:
+    #         print("Migration for {}".format(ex_name))
+    #         # Only based on the `name` field
+    #         exiobase_381_change_names_data = json.load(open(migrations_exiobase_filepath))
+    #         bi.Migration("exiobase-381-change-names").write(
+    #             exiobase_381_change_names_data,
+    #             description="Change names of some exiobase 3.8.1 activities"
+    #         )
 #             co.migrate('exiobase-381-change-names')
 #             margins_path = Path(sut_path) / 'CH_2015.xls'
 #         elif '2.2' in ex_name:
