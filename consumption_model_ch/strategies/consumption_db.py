@@ -1,184 +1,151 @@
 # -*- coding: utf-8 -*-
 import bw2data as bd
-
 import pandas as pd
 import numpy as np
-from copy import copy, deepcopy
-import os, json
+from copy import deepcopy
+import json
 import re
-import country_converter as coco
-import warnings
 from pathlib import Path
-
-###########################
-# ## 1. Define constants ###
-# ##########################
-
-# Database name
-CONSUMPTION_DB_NAME = 'CH consumption 1.0'
+from bw2io.utils import rescale_exchange  # rescales uncertainties as well
 
 
-###################################################################
-# ## 2.Convert data to brightway database format -> all functions ##
-# ##################################################################
+def get_allocated_excs(db, mapping, db_name):
+    """
+    Function that generates list of exchanges with
+    Each "inner" list contains dictionaries of exchanges in the correct format.
+    By correct format we mean the one consistent with the format of exchanges
+    in the (not written yet) consumption database (see eg co.data[0]['exchanges']).
+    We exclude amounts for now and instead add field 'production volume share'
 
-# def append_ecoinvent_exchange(df, df_ind_j, ConversionDem2FU):
-#     '''
-#     Extract information about one input activity, eg name, unit, location, etc and append it to the dataframe df.
-#     '''
-#     # Extract the activity number
-#     k = int(''.join(c for c in df_ind_j.index[0] if c.isdigit()))
-#     # Extract information about activity and save it
-#     input_act_str = df_ind_j['DB Act ' + str(k)]
-#     input_act_db_code = df_ind_j['Activity ' + str(k)]
+    Parameters
+    ----------
+    db : bd.Database
+        Database that contains unlinked exchanges
+    mapping : list of dictionaries
+        Each dictionary corresponds to an unlinked exchange with key = name of the unlinked exchange and
+                                                                 values = codes of allocation activities
+    db_name : name of the database to link to
 
-#     # Find this input activity in brightway databases
-#     db_name = input_act_db_code.split("'")[1]
+    Returns
+    -------
+    unlinked_list_used : list
+        List of unlinked exchanges that are actually present in the mapping.
+    allocated_excs : list of lists
+        Each inner list contains exchanges dictionaries
 
-#     # Only include ecoinvent exchanges
-#     dbs_no_list = ['agribalyse', 'exiobase', 'heia']
-#     for db_no in dbs_no_list:
-#         if db_no in db_name.lower():
-#             return df
+    """
 
-#     code = input_act_db_code.split("'")[3]
-#     input_act_db_code_tuple = (db_name, code)
+    unlinked_list = list(db.unlinked)
+    len_unlinked = len(unlinked_list)
 
-#     # Compute amount
-#     input_act_amount = df_ind_j['On ' + str(k)] \
-#                      * df_ind_j['Amount Act ' + str(k)] \
-#                      * df_ind_j['CFL Act ' + str(k)] \
-#                      * ConversionDem2FU
+    unlinked_names_loc = [0] * len_unlinked
+    for i in range(len_unlinked):
+        unlinked_names_loc[i] = (unlinked_list[i]['name'], unlinked_list[i]['location'])
 
-#     try:
-#         # Find activity in the ecoinvent 3.3 cutoff using bw functionality
-#         current_project = deepcopy(bd.projects.current)
-#         bd.projects.set_current('ecoinvent 3.3 cutoff') # Temporarily switch to ecoinvent 3.3 project
-#         act_bw = bd.get_activity(input_act_db_code_tuple)
-#         bd.projects.set_current(current_project)
-#         input_act_values_dict = create_input_act_dict(act_bw, input_act_amount)
+    unlinked_list_used = []
+    allocated_excs = []
+
+    for m in range(len(mapping)):
+        try:
+            # If current element from mapping is in unlinked exchanges, save it in `unlinked_list_used`
+            index = unlinked_names_loc.index(list(mapping[m].keys())[0])
+            unlinked_list_used.append(unlinked_list[index])
+
+            # Change exchanges of the current activity if some of them are unlinked. This involves adding new allocation
+            # exchanges to `allocated_excs` and adding field `production volume share`
+            new_exchanges = []
+            vols = 0
+            codes = list(mapping[m].values())[0]
+            for code in codes:
+                act = bd.get_activity((db_name, code))
+                production_exc = next(item for item in act.exchanges() if item['type'] == 'production')
+                vol = production_exc['production volume']
+                vols += vol
+                exc = deepcopy(unlinked_list[index])
+                # Update some values to be consistent with db_name
+                exc2 = {'name': act['name'],
+                        'reference product': act['reference product'],
+                        'location': act['location'],
+                        'production volume share': vol,
+                        'unit': act['unit'],
+                        'database': db_name,
+                        'type': 'technosphere'}
+                exc.update(exc2)
+
+                new_exchanges.append(exc)
+
+            for exc in new_exchanges:
+                exc['production volume share'] /= vols
+
+            allocated_excs.append(new_exchanges)
+
+        except ValueError:
+            pass
+
+    return unlinked_list_used, allocated_excs
 
 
-#     except:
-#         # If bd.get_activity does not work for whichever reason, fill info manually
-#         input_act_values_dict = bw_get_activity_info_manually(input_act_str, db_name, input_act_amount)
+def compare_exchanges(exc1, exc2, db_name):
+    """Function that compares two exchanges based on certain fields. Return True if exchanges are the same."""
 
-#     # Add exchange to the dataframe with database in brightway format
-#     df = append_exchanges_in_correct_columns(df, input_act_values_dict)
+    # Do not consider biosphere exchanges
+    if exc1['type'] == 'biosphere' or exc2['type'] == 'biosphere':
+        return False
 
-#     return df
+    # Do not need to consider exchanges that are not in the database we're linking to
+    try:
+        if exc1['input'][0] != db_name:
+            return False
+    except:
+        pass
+
+    # Compare exchanges based on their dictionary fields
+    fields_to_compare = ['name', 'location', 'unit', 'type']
+    same = all([exc1[f] == exc2[f] for f in fields_to_compare])
+
+    return same
 
 
+def modify_exchanges(db, mapping, db_name):
+    """Change exchanges of activities if unlinked, adjust their amount based on `production volume share` field.
 
+    TODO: change the code to removing unlinked exchanges instead of adding them - line 121-...
+    TODO: uncertainty info is not scaled!!!
 
+    """
 
-# def update_exiobase_amounts(ex_name, exiobase_path):
-#     # The following code is needed to update amounts of exiobase exchanges, see Froemelt thesis, Appendix D.4, p.242:
-#     # "the shares of EXIOBASE sectors were determined based on the Swiss final demand vector provided by EXIOBASE"
-#     # This update is needed in case new regions appear in future exiobase versions,
-#     # and to be consistent with the most updated exiobase Swiss final demand.
-#
-#     # 1. Find activities in the consumption database that have exchanges from all regionalized exiobase sectors
-#     co = bd.Database(CONSUMPTION_DB_NAME)
-#     acts_to_modify = {}
-#     exiobase_set = set()
-#     for act in co:
-#         exiobase_excs = np.array([exc.input['name'] for exc in act.exchanges() if exc.input['database'] == ex_name])
-#         excs_sectors_shares_to_modify = []
-#         excs_conversion_only_to_modify = []
-#         for exc in list(set(exiobase_excs)):
-#             if sum(exiobase_excs==exc)>3:
-#                 exiobase_set.add(exc)
-#                 excs_sectors_shares_to_modify.append(exc)
-#             else:
-#                 exiobase_bw_excs = [exchange for exchange in act.exchanges() if exchange.input['database'] == ex_name and
-#                                     exc == exchange.input['name'] and exchange['type']=='technosphere']
-#                 excs_conversion_only_to_modify += exiobase_bw_excs
-#         if len(exiobase_excs) > 0:
-#             acts_to_modify[act] = {
-#                 "sectors_shares": excs_sectors_shares_to_modify,
-#                 "conversion_only": excs_conversion_only_to_modify,
-#             }
-#     # Save exiobase sectors that are used in the consumption database, where we use shares from the CH final demand,
-#     # so that we can compare these shares between exiobase 2 and 3
-#     filepath_exiobase_set = 'write_files/exiobase_in_consumption_db.pickle'
-#     exiobase_list = sorted(list(exiobase_set))
-#     with open(filepath_exiobase_set, 'wb') as f:
-#         pickle.dump(exiobase_list, f)
-#
-#     # 2. Find shares of the sectors based on the Exiobase household consumption
-#     if '2.2' in ex_name:
-#         filename = "mrFinalDemand_version2.2.2.txt"
-#         columns = ['Unnamed: 0', 'Unnamed: 1', 'CH']
-#     elif '3.8.1' in ex_name:
-#         filename = "Y.txt"
-#         columns = ['region', 'Unnamed: 1', 'CH']
-#     filepath = Path(exiobase_path) / filename
-#     df = pd.read_table(filepath)
-#     df = df[columns]
-#     df.columns = ['location', 'name', 'hh_consumption']
-#     df = df.dropna()
-#     df.index = np.arange(len(df))
-#
-#     # 3. Modify names of the sectors to be consistent with brightway
-#     names_dict = {}
-#     for name in set(df['name']):
-#         start = name.find('(')
-#         end = name.find(')')
-#         if start!=end and name[start+1:end].isnumeric():
-#             names_dict[name] = name[:start-1]
-#     for name, name_no_number in names_dict.items():
-#         mask = df['name']==name
-#         df['name'][mask] = name_no_number
-#
-#     # 4. Replace old exiobase exchanges with new ones
-#     chf_to_euro_2007 = 0.594290
-#     chf_to_euro_2015 = 0.937234
-#     ex = bd.Database(ex_name)
-#     l = len(acts_to_modify)
-#     iact = 0
-#     for act_to_modify, excs_all in acts_to_modify.items():
-#         print("{:3d}/{:3d} {}".format(iact, l, act_to_modify['name']))
-#         original_ConversionDem2FU = act_to_modify['original_ConversionDem2FU']
-#         ConversionDem2FU = original_ConversionDem2FU/chf_to_euro_2007*chf_to_euro_2015
-#         excs_sectors_shares = excs_all["sectors_shares"]
-#         # 4.1 modify sectors shares
-#         for exc in excs_sectors_shares:
-#             # Delete old exchanges
-#             [bw_exc.delete() for bw_exc in act_to_modify.exchanges() if bw_exc.input['name'] == exc
-#              and bw_exc['type']=='technosphere']
-#             # Add new exchanges
-#             sector = df[df['name'] == exc].copy()
-#             amounts = np.array([float(val) for val in sector['hh_consumption'].values])
-#             if sum(amounts) != 0:
-#                 amounts /= sum(amounts)
-#                 sector['amount'] = amounts
-#                 for _,row in sector.iterrows():
-#                     input_ = [act for act in ex if act['name']==row['name'] and act['location']==row['location']]
-#                     amount = row['amount']*ConversionDem2FU
-#                     if len(input_)==1:
-#                         act_to_modify.new_exchange(
-#                             input=input_[0],
-#                             amount=amount,
-#                             type="technosphere"
-#                         ).save()
-#                     else:
-#                         print(input_)
-#         excs_conversion_only = excs_all["conversion_only"]
-#         amounts = {exchange.input: 0 for exchange in excs_conversion_only}
-#         for exc in excs_conversion_only:
-#             amounts[exc.input] += deepcopy(exc.amount)
-#             # Delete old exchange
-#             exc.delete()
-#         for input_,amount in amounts.items():
-#             # Add exchange with updated amount
-#             act_to_modify.new_exchange(
-#                 input=input_,
-#                 amount=amount/chf_to_euro_2007*chf_to_euro_2015,
-#                 type="technosphere"
-#             ).save()
-#         iact += 1
-#
+    db1 = deepcopy(db)
+    unlinked_list_used, allocated_excs = get_allocated_excs(db, mapping, db_name)
+    for act in db1.data:
+        try:
+            exchanges = deepcopy(act['exchanges'])
+            new_exchanges = []
+            for exc in exchanges:
+                ind = next(
+                    (i for i, item in enumerate(unlinked_list_used) if compare_exchanges(exc, item, db_name)), None
+                )
+                if ind is not None:
+                    # if we find current exchange in the unlinked exchanges list, replace it with other ones
+                    # while using allocation by production volume
+                    allocated_excs_new_amt = deepcopy(allocated_excs[ind])
+                    # for exc_new_amt in allocated_excs_new_amt:
+                    #     exc_new_amt['amount'] = exc_new_amt['production volume share'] * exc['amount']
+                    for exc_new_amt in allocated_excs_new_amt:
+                        if 'production volume share' in exc_new_amt:
+                            exc_new_amt['amount'] = exc['amount']
+                            new_exchanges.append(rescale_exchange(exc_new_amt, exc_new_amt['production volume share']))
+                else:
+                    # if we don't find current exchange in the unlinked exchanges list, append current to the list
+                    new_exchanges.append(exc)
+
+            act['exchanges'] = new_exchanges
+        except:
+            pass
+
+    # db1.match_database(db_name, fields=('name', 'reference product', 'unit', 'location'))
+
+    return db1
+
 
 def get_margins_df(filepath, margins_label):
     dataframe = pd.read_excel(filepath, sheet_name=margins_label, skiprows=11)

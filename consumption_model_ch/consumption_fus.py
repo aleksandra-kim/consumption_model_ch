@@ -1,3 +1,13 @@
+import os
+import pandas as pd
+import numpy  as np
+import bw2data as bd
+from pathlib import Path
+import re
+
+dirpath = Path(__file__).parent.resolve() / "data"
+
+
 def add_consumption_all_hh(
         co_name,
         habe_path,
@@ -5,8 +15,7 @@ def add_consumption_all_hh(
         option='disaggregated',
         write_dir="write_files",
 ):
-    ### 1. Extract total demand from HABE
-    #########
+    # 1. Extract total demand from HABE
     get_path = lambda which_file: os.path.join(habe_path,
                                                [f for f in os.listdir(habe_path) if habe_year in f and which_file in f][
                                                    0])
@@ -92,7 +101,7 @@ def add_consumption_all_hh(
         df = df.reset_index()
 
     elif option == 'disaggregated':
-        path = DATADIR / 'habe20092011_hh_prepared_imputed.csv'
+        path = dirpath / "functional_units" / 'habe20092011_hh_prepared_imputed.csv'
         df = pd.read_csv(path, low_memory=False)
         n_households = df.shape[0]
         df = df.drop('haushaltid', axis=1).sum()
@@ -279,7 +288,7 @@ def add_consumption_categories(co_name):
     co = bd.Database(co_name)
 
     sheet_name = 'Overview & LCA-Modeling'
-    co_path = DATADIR / "es8b01452_si_002.xlsx"
+    co_path = dirpath / "functional_units" / "es8b01452_si_002.xlsx"
     df_raw = pd.read_excel(co_path, sheet_name=sheet_name, header=2)
 
     categories_col_de = 'Original name in Swiss household budget survey'

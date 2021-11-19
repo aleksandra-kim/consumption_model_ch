@@ -7,8 +7,9 @@ import bw2data as bd
 from bw2io.importers.base_lci import LCIImporter
 from bw2io.strategies import migrate_datasets, migrate_exchanges
 
-from ..extractors.consumption_db import ConsumptionDbExtractor
+from ..extractors import ConsumptionDbExtractor
 from ..migrations import create_consumption_db_migrations
+from ..strategies import modify_exchanges
 
 # Default name of the consumption database
 CONSUMPTION_DB_NAME = 'CH consumption 1.0'
@@ -40,15 +41,22 @@ class ConsumptionDbImporter(LCIImporter):
             )
         )
         co = bi.ExcelImporter(self.filepath_consumption_excel)
-        self.data = self.update_databases(co.data)
+        co.data = self.update_databases(co.data)
+        co = self.map_by_production_volume(co)
         create_consumption_db_migrations()
+        co.migrate("ecoinvent-35-36-37-38-change-names")
+        co.migrate("ecoinvent-36-371-38-rice-nonbasmati")
+        co.migrate("ecoinvent-38-marine-fish")
         self.strategies = [
-            functools.partial(migrate_datasets, migration="ecoinvent-35-36-37-38-change-names"),
-            functools.partial(migrate_datasets, migration="ecoinvent-36-371-38-rice-nonbasmati"),
-            functools.partial(migrate_datasets, migration="ecoinvent-38-marine-fish"),
+            # functools.partial(migrate_datasets, migration="ecoinvent-35-36-37-38-change-names"),
+            # functools.partial(migrate_exchanges, migration="ecoinvent-35-36-37-38-change-names"),
+            # functools.partial(migrate_exchanges, migration="ecoinvent-36-371-38-rice-nonbasmati"),
+            # functools.partial(migrate_exchanges, migration="ecoinvent-38-marine-fish"),
         ]
+        self.data = co.data
 
-    def update_databases(self, data):
+    @staticmethod
+    def update_databases(data):
         # Figure out the new ecoinvent name
         ei_name = [db for db in bd.databases if 'ecoinvent' in db.lower()]
         assert len(ei_name) == 1
@@ -60,6 +68,51 @@ class ConsumptionDbImporter(LCIImporter):
                 if exc['database'] == 'ecoinvent 3.3 cutoff':
                     exc.update(dict(database=ei_name))
         return data_updated
+
+    @staticmethod
+    def determine_ecoinvent_db_name():
+        """Function that naively determines how ecoinvent is called in a particular BW project."""
+        ei_name = [db for db in bd.databases if 'ecoinvent' in db.lower()]
+        assert len(ei_name) == 1
+        return ei_name[0]
+
+    @classmethod
+    def map_by_production_volume(cls, db):
+        ei_name = cls.determine_ecoinvent_db_name()
+        ei = bd.Database(ei_name)
+        mapping = [
+            {('market for rice', 'GLO'):
+                 [act['code'] for act in ei if 'market for rice' in act['name']
+                  and act['location'] == 'GLO'
+                  and 'seed' not in act['name']]},
+
+            {('rice production', 'RoW'):
+                 [act['code'] for act in ei if 'rice production' in act['name']
+                  and act['location'] == 'RoW'
+                  and 'straw' not in act['reference product']]},
+
+            {('rice production', 'IN'):
+                 [act['code'] for act in ei if 'rice production' in act['name']
+                  and act['location'] == 'IN'
+                  and 'straw' not in act['reference product']]},
+
+            {('market for wheat grain', 'GLO'):
+                 [act['code'] for act in ei if 'market for wheat grain' in act['name']
+                  and 'feed' not in act['name']]},
+
+            {('market for maize grain', 'GLO'):
+                 [act['code'] for act in ei if 'market for maize grain' in act['name']
+                  and 'feed' not in act['name']]},
+
+            {('market for mandarin', 'GLO'):
+                 [act['code'] for act in ei if 'market for mandarin' in act['name']]},
+
+            {('market for soybean', 'GLO'):
+                 [act['code'] for act in ei if 'market for soybean' in act['name']
+                  and all([_ not in act['name'] for _ in ['meal', 'beverage', 'seed', 'feed', 'oil']])]},
+        ]
+        db = modify_exchanges(db, mapping, ei_name)
+        return db
 
     def write_database(self, data=None, name=None, *args, **kwargs):
         db = super(ConsumptionDbImporter, self).write_database(data, name, *args, **kwargs)

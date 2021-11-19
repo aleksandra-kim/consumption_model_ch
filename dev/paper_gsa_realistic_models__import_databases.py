@@ -26,15 +26,11 @@ co = ConsumptionDbImporter(
     exclude_databases=exclude_databases,
     replace_agribalyse_with_ecoinvent=True,
 )
-co.apply_strategies()
 co.match_database()
 co.match_database(db_name='biosphere3', fields=('name', 'category', 'unit', 'location'))
-co.match_database(db_name=ei38_name, fields=('name', 'unit', 'location'))
-# co.match_database(db_name=co.name, fields=('name', 'unit', 'location'))
+co.match_database(db_name=ei38_name, fields=('name', 'unit', 'reference product', 'location'))
+co.apply_strategies()
 co.statistics()
-
-
-
 
 print()
 
