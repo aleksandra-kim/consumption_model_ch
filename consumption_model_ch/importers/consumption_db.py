@@ -1,15 +1,15 @@
 from time import time
-import functools
+# import functools
 from copy import deepcopy
 
 import bw2io as bi
 import bw2data as bd
 from bw2io.importers.base_lci import LCIImporter
-from bw2io.strategies import migrate_datasets, migrate_exchanges
+# from bw2io.strategies import migrate_datasets, migrate_exchanges
 
 from ..extractors import ConsumptionDbExtractor
 from ..migrations import create_consumption_db_migrations
-from ..strategies import modify_exchanges
+from ..strategies import modify_exchanges, link_exiobase
 
 # Default name of the consumption database
 CONSUMPTION_DB_NAME = 'CH consumption 1.0'
@@ -25,12 +25,15 @@ class ConsumptionDbImporter(LCIImporter):
         year='091011',
         exclude_databases=(),
         replace_agribalyse_with_ecoinvent=True,
+        exiobase_path=None,
     ):
         start = time()
-        self.name = name or CONSUMPTION_DB_NAME
+        self.db_name = name or CONSUMPTION_DB_NAME
+        self.year = year
+        self.directory = directory
         self.df, self.filepath_consumption_excel = ConsumptionDbExtractor.extract(
             directory,
-            name=self.name,
+            name=self.db_name,
             year=year,
             exclude_databases=exclude_databases,
             replace_agribalyse_with_ecoinvent=replace_agribalyse_with_ecoinvent,
@@ -41,26 +44,32 @@ class ConsumptionDbImporter(LCIImporter):
             )
         )
         co = bi.ExcelImporter(self.filepath_consumption_excel)
-        co.data = self.update_databases(co.data)
+        co.data = self.update_ecoinvent_name(co.data)
+        if "exiobase 2.2" not in exclude_databases:
+            co.data = self.update_exiobase_name(co.data)
         co = self.map_by_production_volume(co)
         create_consumption_db_migrations()
         co.migrate("ecoinvent-35-36-37-38-change-names")
         co.migrate("ecoinvent-36-371-38-rice-nonbasmati")
         co.migrate("ecoinvent-38-marine-fish")
+        exclude_databases = [db.lower() for db in exclude_databases]
+        if "exiobase 2.2" not in exclude_databases:
+            co.migrate("exiobase-381-change-names")
+            co.migrate("exiobase-row-locations")
         self.strategies = [
             # functools.partial(migrate_datasets, migration="ecoinvent-35-36-37-38-change-names"),
             # functools.partial(migrate_exchanges, migration="ecoinvent-35-36-37-38-change-names"),
             # functools.partial(migrate_exchanges, migration="ecoinvent-36-371-38-rice-nonbasmati"),
             # functools.partial(migrate_exchanges, migration="ecoinvent-38-marine-fish"),
         ]
+        exiobase_name = self.determine_exiobase_db_name()
+        co = link_exiobase(co, exiobase_name, exiobase_path)
         self.data = co.data
 
-    @staticmethod
-    def update_databases(data):
+    @classmethod
+    def update_ecoinvent_name(cls, data):
         # Figure out the new ecoinvent name
-        ei_name = [db for db in bd.databases if 'ecoinvent' in db.lower()]
-        assert len(ei_name) == 1
-        ei_name = ei_name[0]
+        ei_name = cls.determine_ecoinvent_db_name()
         # Replace `ecoinvent 3.3 cutoff` that was used in the original consumption model with the current ecoinvent
         data_updated = deepcopy(data)
         for act in data_updated:
@@ -69,12 +78,31 @@ class ConsumptionDbImporter(LCIImporter):
                     exc.update(dict(database=ei_name))
         return data_updated
 
+    @classmethod
+    def update_exiobase_name(cls, data):
+        # Figure out the new ecoinvent name
+        ex_name = cls.determine_exiobase_db_name()
+        # Replace `exiobase 2.2` that was used in the original consumption model with the current exiobase
+        data_updated = deepcopy(data)
+        for act in data_updated:
+            for exc in act.get('exchanges', []):
+                if exc['database'] == 'EXIOBASE 2.2':
+                    exc.update(dict(database=ex_name))
+        return data_updated
+
     @staticmethod
     def determine_ecoinvent_db_name():
         """Function that naively determines how ecoinvent is called in a particular BW project."""
         ei_name = [db for db in bd.databases if 'ecoinvent' in db.lower()]
         assert len(ei_name) == 1
         return ei_name[0]
+
+    @staticmethod
+    def determine_exiobase_db_name():
+        """Function that naively determines how ecoinvent is called in a particular BW project."""
+        ex_name = [db for db in bd.databases if 'exiobase' in db.lower() and 'biosphere' not in db.lower()]
+        assert len(ex_name) == 1
+        return ex_name[0]
 
     @classmethod
     def map_by_production_volume(cls, db):
@@ -116,7 +144,13 @@ class ConsumptionDbImporter(LCIImporter):
 
     def write_database(self, data=None, name=None, *args, **kwargs):
         db = super(ConsumptionDbImporter, self).write_database(data, name, *args, **kwargs)
-        db.metadata["Path to consumption database in BW excel format"] = self.filepath_consumption_excel
+        db.metadata.update(
+            {
+                "fp_consumption_db": str(self.filepath_consumption_excel),
+                "dir_habe": str(self.directory),
+                "year_habe": self.year,
+            }
+        )
         db._metadata.flush()
         return db
 

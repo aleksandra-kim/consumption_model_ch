@@ -33,10 +33,23 @@ def import_exiobase_3(ex3_path, ex3_name):
         ex.write_database()
 
 
-def import_consumption_db(habe_path, co_name, exclude_dbs=(),):
-    # TODO add more here once the import is done
+def import_consumption_db(directory_habe, co_name, exclude_databases=(), exiobase_path=None):
     if co_name in bd.databases:
         print(co_name + " database already present!!! No import is needed")
     else:
-        co = ConsumptionDbImporter(habe_path, co_name, exclude_dbs)
+        co = ConsumptionDbImporter(
+            directory_habe,
+            exclude_databases=exclude_databases,
+            replace_agribalyse_with_ecoinvent=True,
+            exiobase_path=exiobase_path,
+        )
+        ei_name = co.determine_ecoinvent_db_name()
+        ex_name = co.determine_exiobase_db_name()
+        co.match_database()
+        co.match_database(db_name='biosphere3', fields=('name', 'category', 'unit', 'location'))
+        co.match_database(db_name=ei_name, fields=('name', 'unit', 'reference product', 'location'))
+        co.match_database(db_name=ex_name, fields=('name', 'unit', 'location'))
+        co.apply_strategies()
+        co.statistics()
         co.write_database()
+

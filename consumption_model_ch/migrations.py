@@ -5,6 +5,7 @@ from .data import (
     get_ecoinvent_rice_migration_data,
     get_ecoinvent_marine_fish_migration_data,
     get_exiobase_migration_data,
+    get_exiobase_row_locations,
 )
 
 
@@ -26,4 +27,8 @@ def create_consumption_db_migrations():
     Migration("exiobase-381-change-names").write(
         get_exiobase_migration_data(),
         "Change names of some exiobase 3.8.1 activities",
+    )
+    Migration("exiobase-row-locations").write(
+        get_exiobase_row_locations(),
+        "Change RoW locations in exiobase activities",
     )

@@ -110,5 +110,5 @@ sompy/.DS_Store
 # local files
 dev/write_files/
 data/habe20092011_hh_prepared_imputed.csv
-data/pp_to_bp_exiobase.m
+data/other/
 .idea/

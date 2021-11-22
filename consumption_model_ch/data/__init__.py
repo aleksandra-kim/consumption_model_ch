@@ -38,3 +38,24 @@ def get_exiobase_migration_data():
     return json.load(
         open(dirpath / "migrations" / "exiobase-3.8.1.json")
     )
+
+
+def get_exiobase_row_locations():
+    return json.load(
+        open(dirpath / "migrations" / "exiobase-row-locations.json")
+    )
+
+
+def get_exiobase_linking_data():
+    return json.load(
+        open(dirpath / "migrations" / "exiobase-linking.json")
+    )
+
+
+def get_exiobase_margins_data(year, sheet_name):
+    df = pd.read_excel(
+        dirpath / "CH_{}.xls".format(year),
+        sheet_name=sheet_name,
+        skiprows=11
+    )
+    return df

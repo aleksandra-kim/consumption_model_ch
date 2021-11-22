@@ -11,6 +11,7 @@ import bw2data as bd
 
 from ..data import get_consumption_df
 from ..data import get_agribalyse_df
+from ..utils import get_habe_filepath
 
 
 # Number of relevant columns in the raw file (df_raw) to extract info about activity
@@ -119,12 +120,6 @@ class ConsumptionDbExtractor(object):
         df.columns = column_names_complete[:len(column_names)]
         return df
 
-    @staticmethod
-    def get_habe_filepath(directory, year, tag):
-        files = [x for x in directory.iterdir() if (year in x.name) and (tag in x.name)]
-        assert len(files) == 1
-        return files[0]
-
     @classmethod
     def extract_habe_units(cls, directory, year):
         """Extract information about units of some activities from HABE metadata."""
@@ -132,7 +127,7 @@ class ConsumptionDbExtractor(object):
         assert Path(directory).exists()
 
         # Get path of the HABE data description (Datenbeschreibung)
-        path_datenbeschreibung = cls.get_habe_filepath(directory, year, 'Datenbeschreibung')
+        path_datenbeschreibung = get_habe_filepath(directory, year, 'Datenbeschreibung')
 
         # Get meta information about units
         mengen_df = pd.read_excel(path_datenbeschreibung, sheet_name='Mengen', skiprows=14, usecols=[1, 2, 4, 7])
