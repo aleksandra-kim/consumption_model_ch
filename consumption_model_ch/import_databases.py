@@ -25,32 +25,36 @@ def create_ecoinvent_33_project(ei33_path, ei33_name="ecoinvent 3.3 cutoff"):
 
         
 def import_exiobase_3(ex3_path, ex3_name):
-    if ex3_name in bd.databases:
-        print("{} database already present!!! No import is needed".format(ex3_name))
-    else:
+    if ex3_name not in bd.databases:
         ex = bi.Exiobase3MonetaryImporter(ex3_path, ex3_name)  # give path to IOT_year_pxp folder
         ex.apply_strategies()
         ex.write_database()
 
 
 def import_consumption_db(directory_habe, co_name, year, ei33_path, exclude_databases=(), exiobase_path=None):
-    if co_name in bd.databases:
-        print(co_name + " database already present!!! No import is needed")
-    else:
+    if co_name not in bd.databases:
+        create_ecoinvent_33_project(ei33_path)
         co = ConsumptionDbImporter(
             directory_habe,
-            ei33_path=ei33_path,
             year=year,
             exclude_databases=exclude_databases,
             replace_agribalyse_with_ecoinvent=True,
             exiobase_path=exiobase_path,
         )
         ei_name = co.determine_ecoinvent_db_name()
-        ex_name = co.determine_exiobase_db_name()
         co.match_database()
         co.match_database(db_name='biosphere3', fields=('name', 'category', 'unit', 'location'))
         co.match_database(db_name=ei_name, fields=('name', 'unit', 'reference product', 'location'))
-        co.match_database(db_name=ex_name, fields=('name', 'unit', 'location'))
+
+        use_exiobase = True
+        for db in exclude_databases:
+            if 'exiobase' in db.lower():
+                use_exiobase = False
+                break
+        if use_exiobase:
+            ex_name = co.determine_exiobase_db_name()
+            co.match_database(db_name=ex_name, fields=('name', 'unit', 'location'))
+
         co.apply_strategies()
         co.statistics()
         co.write_database()

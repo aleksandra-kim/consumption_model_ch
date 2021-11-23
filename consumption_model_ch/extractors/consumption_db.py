@@ -12,7 +12,7 @@ import bw2data as bd
 from ..data import get_consumption_df
 from ..data import get_agribalyse_df
 from ..utils import get_habe_filepath
-from ..import_databases import create_ecoinvent_33_project
+# from ..import_databases import create_ecoinvent_33_project
 
 
 # Number of relevant columns in the raw file (df_raw) to extract info about activity
@@ -58,7 +58,6 @@ class ConsumptionDbExtractor(object):
     def extract(
         cls,
         directory,
-        ei33_path,
         name,
         year,
         exclude_databases=(),
@@ -89,7 +88,6 @@ class ConsumptionDbExtractor(object):
             True if eggs and fish activities from agribalyse should be replaced with the ones in ecoinvent.
 
         """
-        create_ecoinvent_33_project(ei33_path)
         df_brightway, filepath_consumption_excel = cls.get_consumption_df(
             directory,
             name=name,
@@ -334,7 +332,6 @@ class ConsumptionDbExtractor(object):
                 df_ind_j,
                 ConversionDem2FU,
                 exclude_dbs=exclude_dbs,
-                replace_agribalyse_with_ei=replace_agribalyse_with_ei
             )
         return df
 

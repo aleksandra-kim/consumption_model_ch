@@ -21,7 +21,6 @@ class ConsumptionDbImporter(LCIImporter):
     def __init__(
         self,
         directory,
-        ei33_path,
         name=None,
         year='091011',
         exclude_databases=(),
@@ -30,12 +29,10 @@ class ConsumptionDbImporter(LCIImporter):
     ):
         start = time()
         self.directory = directory
-        self.ei33_path = ei33_path
         self.db_name = name or CONSUMPTION_DB_NAME
         self.year = year
         self.df, self.filepath_consumption_excel = ConsumptionDbExtractor.extract(
             directory,
-            ei33_path=ei33_path,
             name=self.db_name,
             year=self.year,
             exclude_databases=exclude_databases,
@@ -59,14 +56,14 @@ class ConsumptionDbImporter(LCIImporter):
         if "exiobase 2.2" not in exclude_databases:
             co.migrate("exiobase-381-change-names")
             co.migrate("exiobase-row-locations")
+            exiobase_name = self.determine_exiobase_db_name()
+            co = link_exiobase(co, exiobase_name, exiobase_path)
         self.strategies = [
             # functools.partial(migrate_datasets, migration="ecoinvent-35-36-37-38-change-names"),
             # functools.partial(migrate_exchanges, migration="ecoinvent-35-36-37-38-change-names"),
             # functools.partial(migrate_exchanges, migration="ecoinvent-36-371-38-rice-nonbasmati"),
             # functools.partial(migrate_exchanges, migration="ecoinvent-38-marine-fish"),
         ]
-        exiobase_name = self.determine_exiobase_db_name()
-        co = link_exiobase(co, exiobase_name, exiobase_path)
         self.data = co.data
 
     @classmethod
