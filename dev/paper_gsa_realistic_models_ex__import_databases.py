@@ -19,13 +19,15 @@ from consumption_model_ch.consumption_fus import (
 
 if __name__ == "__main__":
 
-    delete_consumption_db = False
+    delete_consumption_db = True
     add_functional_units = True
+    habe_year = '151617'
 
     path_base = Path('/Users/akim/Documents/LCA_files/')
     fp_gsa_project = path_base / "brightway2-project-GSA-backup.16-November-2021-11-50AM.tar.gz"
     directory_habe = path_base / 'HABE_2017/'
-    fp_ecoinvent = path_base / "ecoinvent_38_cutoff" / "datasets"
+    fp_ecoinvent_38 = path_base / "ecoinvent_38_cutoff" / "datasets"
+    fp_ecoinvent_33 = path_base / 'ecoinvent_33_cutoff/datasets'
     fp_exiobase = path_base / "exiobase_381_monetary" / "IOT_2015_pxp"
     fp_archetypes = path_base / "heia" / "hh_archetypes_weighted_ipcc_091011.csv"
 
@@ -34,8 +36,8 @@ if __name__ == "__main__":
 
     # Import all databases
     bi.bw2setup()
-    ei38_name = "ecoinvent"
-    import_ecoinvent(fp_ecoinvent, ei38_name)
+    ei38_name = "ecoinvent 3.8"
+    import_ecoinvent(fp_ecoinvent_38, ei38_name)
     ex38_name = "exiobase 3.8.1 monetary"
     import_exiobase_3(fp_exiobase, ex38_name)
 
@@ -47,7 +49,7 @@ if __name__ == "__main__":
     co_name = "CH consumption 1.0"
     if delete_consumption_db and co_name in bd.databases:
         del bd.databases[co_name]
-    import_consumption_db(directory_habe, co_name, exclude_databases, fp_exiobase)
+    import_consumption_db(directory_habe, fp_ecoinvent_33, co_name, habe_year, exclude_databases, fp_exiobase)
     co = bd.Database(co_name)
 
     # Add functional units

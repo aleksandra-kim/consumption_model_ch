@@ -33,12 +33,14 @@ def import_exiobase_3(ex3_path, ex3_name):
         ex.write_database()
 
 
-def import_consumption_db(directory_habe, co_name, exclude_databases=(), exiobase_path=None):
+def import_consumption_db(directory_habe, co_name, year, ei33_path, exclude_databases=(), exiobase_path=None):
     if co_name in bd.databases:
         print(co_name + " database already present!!! No import is needed")
     else:
         co = ConsumptionDbImporter(
             directory_habe,
+            ei33_path=ei33_path,
+            year=year,
             exclude_databases=exclude_databases,
             replace_agribalyse_with_ecoinvent=True,
             exiobase_path=exiobase_path,

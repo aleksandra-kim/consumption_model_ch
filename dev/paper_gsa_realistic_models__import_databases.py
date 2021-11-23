@@ -20,6 +20,7 @@ add_functional_units = True
 path_base = Path('/Users/akim/Documents/LCA_files/')
 fp_gsa_project = path_base / "brightway2-project-GSA-backup.16-November-2021-11-50AM.tar.gz"
 directory_habe = path_base / 'HABE_2017/'
+fp_ei33 = path_base / 'ecoinvent_33_cutoff/datasets'
 
 project = "GSA"
 
@@ -40,7 +41,7 @@ exclude_databases = [
 co_name = "CH consumption 1.0"
 if delete_consumption_db:
     del bd.databases[co_name]
-import_consumption_db(directory_habe, co_name, exclude_databases)
+import_consumption_db(directory_habe, fp_ei33, co_name, exclude_databases)
 co = bd.Database(co_name)
 
 # Add functional units

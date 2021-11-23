@@ -148,8 +148,8 @@ def modify_exchanges(db, mapping, db_name):
     return db1
 
 
-def get_margins_df(year, margins_label):
-    dataframe = get_exiobase_margins_data(year, margins_label)
+def get_margins_df(exiobase_year, margins_label):
+    dataframe = get_exiobase_margins_data(exiobase_year, margins_label)
     columns = ['Unnamed: 2', 'Final consumption expenditure by households']
     dataframe = dataframe[columns]
     dataframe.columns = ['name', margins_label]
@@ -158,22 +158,22 @@ def get_margins_df(year, margins_label):
     return dataframe
 
 
-def concat_margins_df(year):
+def concat_margins_df(exiobase_year):
     trd_label = 'trade_margins_init'
     tsp_label = 'transport_margins_init'
     tax_label = 'product_taxes_init'
     bpt_label = 'bptot_ini'  # basic price total
     ppt_label = 'purchaser_price'  # purchaser price total
     labels = [trd_label, tsp_label, tax_label, bpt_label, ppt_label]
-    df_trd = get_margins_df(year, trd_label)
-    df_tsp = get_margins_df(year, tsp_label)
-    df_tax = get_margins_df(year, tax_label)
-    df_bpt = get_margins_df(year, bpt_label)
+    df_trd = get_margins_df(exiobase_year, trd_label)
+    df_tsp = get_margins_df(exiobase_year, tsp_label)
+    df_tax = get_margins_df(exiobase_year, tax_label)
+    df_bpt = get_margins_df(exiobase_year, bpt_label)
     df_margins = pd.concat([df_trd, df_tsp, df_tax, df_bpt], axis=1)
     return df_margins, labels
 
 
-def get_margins_shares(year):
+def get_margins_shares(exiobase_year):
     exiobase_381_change_names_data = get_exiobase_migration_data()
     exiobase_381_change_names_dict = {}
     for el in exiobase_381_change_names_data['data']:
@@ -181,7 +181,7 @@ def get_margins_shares(year):
         new_name = el[1]['name']
         exiobase_381_change_names_dict[old_name] = new_name
 
-    df_margins, labels = concat_margins_df(year)
+    df_margins, labels = concat_margins_df(exiobase_year)
     trd_label, tsp_label, tax_label, bpt_label, ppt_label = labels
 
     new_index = []
@@ -236,12 +236,12 @@ def link_exiobase(co, ex_name, ex_path):
         filename = "mrFinalDemand_version2.2.2.txt"
         columns = ['Unnamed: 0', 'Unnamed: 1', 'CH']
         chf_to_euro = 0.594290
-        year = 2007
+        exiobase_year = 2007
     elif '3.8.1' in ex_name:
         filename = "Y.txt"
         columns = ['region', 'Unnamed: 1', 'CH']
         chf_to_euro = 0.937234
-        year = 2015
+        exiobase_year = 2015
 
     filepath = Path(ex_path) / filename
 
@@ -288,7 +288,7 @@ def link_exiobase(co, ex_name, ex_path):
         sum_ += value
     exiobase_trade_margin_sectors_dict = {k: v / sum_ for k, v in exiobase_trade_margin_sectors_dict.items()}
 
-    df_margins = get_margins_shares(year)
+    df_margins = get_margins_shares(exiobase_year)
     dict_margins = df_margins.T.to_dict()
 
     mln_to_unit = 1e-6

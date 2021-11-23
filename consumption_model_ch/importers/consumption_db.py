@@ -12,7 +12,7 @@ from ..migrations import create_consumption_db_migrations
 from ..strategies import modify_exchanges, link_exiobase
 
 # Default name of the consumption database
-CONSUMPTION_DB_NAME = 'CH consumption 1.0'
+CONSUMPTION_DB_NAME = 'swiss consumption 1.0'
 
 
 class ConsumptionDbImporter(LCIImporter):
@@ -21,6 +21,7 @@ class ConsumptionDbImporter(LCIImporter):
     def __init__(
         self,
         directory,
+        ei33_path,
         name=None,
         year='091011',
         exclude_databases=(),
@@ -28,13 +29,15 @@ class ConsumptionDbImporter(LCIImporter):
         exiobase_path=None,
     ):
         start = time()
+        self.directory = directory
+        self.ei33_path = ei33_path
         self.db_name = name or CONSUMPTION_DB_NAME
         self.year = year
-        self.directory = directory
         self.df, self.filepath_consumption_excel = ConsumptionDbExtractor.extract(
             directory,
+            ei33_path=ei33_path,
             name=self.db_name,
-            year=year,
+            year=self.year,
             exclude_databases=exclude_databases,
             replace_agribalyse_with_ecoinvent=replace_agribalyse_with_ecoinvent,
         )

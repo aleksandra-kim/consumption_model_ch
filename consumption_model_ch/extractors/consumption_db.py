@@ -12,6 +12,7 @@ import bw2data as bd
 from ..data import get_consumption_df
 from ..data import get_agribalyse_df
 from ..utils import get_habe_filepath
+from ..import_databases import create_ecoinvent_33_project
 
 
 # Number of relevant columns in the raw file (df_raw) to extract info about activity
@@ -57,8 +58,9 @@ class ConsumptionDbExtractor(object):
     def extract(
         cls,
         directory,
+        ei33_path,
         name,
-        year='091011',
+        year,
         exclude_databases=(),
         replace_agribalyse_with_ecoinvent=True,
     ):
@@ -87,7 +89,7 @@ class ConsumptionDbExtractor(object):
             True if eggs and fish activities from agribalyse should be replaced with the ones in ecoinvent.
 
         """
-
+        create_ecoinvent_33_project(ei33_path)
         df_brightway, filepath_consumption_excel = cls.get_consumption_df(
             directory,
             name=name,
@@ -155,7 +157,7 @@ class ConsumptionDbExtractor(object):
             cls,
             directory,
             name,
-            year='091011',
+            year,
             exclude_databases=(),
             replace_agribalyse_with_ecoinvent=True,
     ):
@@ -183,7 +185,7 @@ class ConsumptionDbExtractor(object):
             cls,
             directory,
             name,
-            year='091011',
+            year,
             exclude_databases=(),
             replace_agribalyse_with_ecoinvent=True,
     ):
@@ -456,7 +458,7 @@ class ConsumptionDbExtractor(object):
             return 0
 
     @classmethod
-    def append_one_exchange(cls, df, df_ind_j, conversion_dem_to_fu, exclude_dbs=(), replace_agribalyse_with_ei=True):
+    def append_one_exchange(cls, df, df_ind_j, conversion_dem_to_fu, exclude_dbs):
         """Extract info about one input activity, eg name, unit, location, etc and append it to the dataframe df."""
 
         # Extract the activity number
@@ -513,106 +515,3 @@ class ConsumptionDbExtractor(object):
         df = cls.append_exchanges_in_correct_columns(df, input_act_values_dict)
 
         return df
-
-
-# @classmethod
-# def update_all_db(
-#         cls,
-#         df,
-#         update_ecoinvent=True,
-#         update_agribalyse=True,
-#         update_exiobase=True,
-#         use_ecoinvent_371=True,
-# ):
-#     """Update all databases in the consumption database. TODO make more generic"""
-#     if update_ecoinvent:
-#         if use_ecoinvent_371:
-#             ei_name = 'ecoinvent 3.7.1 cutoff'
-#         else:
-#             ei_name = 'ecoinvent 3.6 cutoff'
-#         df = cls.replace_one_db(df, 'ecoinvent 3.3 cutoff', ei_name)
-#     else:
-#         ei_name = 'ecoinvent 3.3 cutoff'
-#     if update_agribalyse:
-#         df = cls.replace_one_db(df, 'Agribalyse 1.2', 'Agribalyse 1.3 - {}'.format(ei_name))
-#     if update_exiobase:
-#         df = cls.replace_one_db(df, 'EXIOBASE 2.2', "Exiobase 3.8.1 Monetary 2015")
-#     return df
-
-
-# def import_consumption_db(
-#     habe_path,
-#     exclude_databases=(),
-#     consumption_db_name=CONSUMPTION_DB_NAME,
-#     habe_year='091011',
-#     ei_name="ecoinvent 3.7.1 cutoff",
-#     write_dir=None,
-#     replace_agribalyse_with_ecoinvent=True,
-#     exiobase_path=None,
-#     sut_path=None,
-# ):
-
-    # if consumption_db_name in bd.databases:
-    #     print(consumption_db_name + " database already present!!! No import is needed")
-    # else:
-    #     # 1. Create write_dir directory if it has not been specified or created.
-    #     # if write_dir is None:
-    #     #     write_dir = Path('write_files') / bd.projects.current.lower().replace(" ", "_")
-    #     # write_dir.mkdir(exist_ok=True, parents=True)
-    #
-    #     # 2. Make sure that 'ecoinvent 3.3 cutoff' project has been created
-    #     if 'ecoinvent 3.3 cutoff' not in bd.projects:
-    #         print(
-    #             'BW project `ecoinvent 3.3 cutoff` is needed, please run `create_ecoinvent_33_project(path_ei33).`'
-    #         )
-    #         return
-    #
-    #     # 3. Create `consumption_db.xlsx` that contains consumption database in the bw excel format.
-    #     # Extract consumption data from supporting information available at https://doi.org/10.1021/acs.est.8b01452.
-    #     consumption_model_path = DATADIR / "es8b01452_si_002.xlsx"
-    #     # Create dataframe that will be our consumption database after we add activities & exchanges from the raw file
-    #     df_bw = create_df_bw(CONSUMPTION_DB_NAME)
-    #     # Read data from the consumption model file
-    #     sheet_name = 'Overview & LCA-Modeling'
-    #     df_raw = pd.read_excel(consumption_model_path, sheet_name=sheet_name, header=2)
-    #     # Extract units from HABE
-    #     code_unit = get_units_habe(habe_path, habe_year)
-    #     # Add ON columns (to fix some formatting issues in the consumption model file)
-    #     df = complete_columns(df_raw)
-    #     # Parse Andi's excel file
-    #
-    #     act_indices = df.index[df['ConversionDem2FU'].notna()].tolist()  # indices of all activities
-    #     exclude_databases = [exclude_db.lower() for exclude_db in exclude_databases]
-    #     path_new_db = write_dir / 'consumption_db.xlsx'
-    #     if not path_new_db.exists():
-    #         print("--> Creating consumption_db.xlsx")
-    #         for ind in act_indices:
-    #             # For each row
-    #             df_ind = df.iloc[ind]
-    #             df_ind = df_ind[df_ind.notna()]
-    #             # Add activity
-    #             df_bw, df_act = append_activity(df_bw, df_ind[:N_ACT_RELEVANT],
-    #                                             code_unit)  # only pass columns relevant to this function
-    #             # Add exchanges
-    #             df_bw = append_exchanges(
-    #                 df_bw,
-    #                 df_ind,
-    #                 df_act,
-    #                 exclude_dbs=exclude_databases,
-    #                 replace_agribalyse_with_ei=replace_agribalyse_with_ecoinvent
-    #             )
-    #         df_bw.columns = list(string.ascii_uppercase[:len(df_bw.columns)])
-    #         # Update to relevant databases and save excel file
-    #         if "3.7.1" in ei_name:
-    #             use_ecoinvent_371 = True
-    #         else:
-    #             use_ecoinvent_371 = False
-    #
-    #         if replace_agribalyse_with_ecoinvent:
-    #             df_agribalyse_ei = pd.read_excel(DATADIR / "agribalyse_replaced_with_ecoinvent.xlsx")
-    #             df_bw = df_bw.append(df_agribalyse_ei, ignore_index=True)
-    #
-    #         df_bw = update_all_db(df_bw, use_ecoinvent_371=use_ecoinvent_371)
-    #         df_bw.to_excel(path_new_db, index=False, header=False)
-
-

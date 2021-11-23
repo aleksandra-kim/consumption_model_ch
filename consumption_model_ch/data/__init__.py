@@ -52,9 +52,9 @@ def get_exiobase_linking_data():
     )
 
 
-def get_exiobase_margins_data(year, sheet_name):
+def get_exiobase_margins_data(exiobase_year, sheet_name):
     df = pd.read_excel(
-        dirpath / "CH_{}.xls".format(year),
+        dirpath / "CH_{}.xls".format(exiobase_year),
         sheet_name=sheet_name,
         skiprows=11
     )
