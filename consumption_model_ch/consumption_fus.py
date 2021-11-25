@@ -1,10 +1,11 @@
 import pandas as pd
 import numpy as np
 import bw2data as bd
+import bw2calc as bc
 from pathlib import Path
 import re
 
-from .utils import get_habe_filepath
+from .utils import get_habe_filepath, read_pickle, write_pickle
 
 dirpath = Path(__file__).parent.resolve() / "data"
 
@@ -356,19 +357,17 @@ def add_consumption_activities(
     df.to_excel(path_demand_comparison)
 
 
-def add_archetypes_consumption(co_name, archetypes_path, ):
+def add_archetypes_consumption(co_name, archetypes_path=None):
+    print("Creating archetypes functional units")
+    if archetypes_path is None:
+        archetypes_path = dirpath / "functional_units" / "hh_archetypes_weighted_working_tables.csv"
     co = bd.Database(co_name)
     df = pd.read_csv(archetypes_path)
     all_consumption_codes = [act['code'] for act in co]
     codes_to_ignore = [code for code in df.iloc[0].index if code not in all_consumption_codes]
-    codes_to_modify = {
-        code: "a{}".format(code[2:]) for code in codes_to_ignore
-        if code[:2] == 'mx' and "a{}".format(code[2:]) in all_consumption_codes
-    }
-    print(codes_to_modify)
+    # print(codes_to_ignore)
     for i, df_row in df.iterrows():
         label = df_row['cluster_label_name']
-        print("Creating consumption activity of archetype {}".format(label))
         # Create new activity
         act_name = "archetype_{}_consumption".format(label)
         try:
@@ -384,19 +383,112 @@ def add_archetypes_consumption(co_name, archetypes_path, ):
         )
         archetype_act.save()
         # Add exchanges to this activity
-
         for code in df_row.index:
-            if ("cg" not in code) and ("cluster" not in code) and (code not in codes_to_ignore):
+            if ("cluster" not in code) and (code not in codes_to_ignore):
                 archetype_act.new_exchange(
                     input=(co.name, code),
                     amount=df_row[code],
                     type='technosphere'
                 ).save()
-        for code in codes_to_modify.keys():
-            archetype_act.new_exchange(
-                input=(co.name, codes_to_modify[code]),
-                amount=df_row[code],
-                type='technosphere'
-            ).save()
-
     return
+
+
+def get_archetypes_scores_per_month(co_name, method, fp_archetypes_scores):
+    """Get total LCIA scores for all archetypes for one month of consumption."""
+    co = bd.Database(co_name)
+    archetypes = sorted([act for act in co if "archetype" in act['name'].lower()])
+    if fp_archetypes_scores.exists():
+        archetypes_scores = read_pickle(fp_archetypes_scores)
+    else:
+        archetypes_scores = {}
+        for demand_act in archetypes:
+            lca = bc.LCA({demand_act: 1}, method)
+            lca.lci()
+            lca.lcia()
+            archetypes_scores[demand_act['name']] = lca.score
+        write_pickle(archetypes_scores, fp_archetypes_scores)
+    return archetypes_scores
+
+
+def get_archetypes_scores_per_sector(co_name, method, write_dir):
+    """Get total LCIA scores for all archetypes for one year of consumption split over sectors."""
+
+    co = bd.Database(co_name)
+    archetypes = sorted([act for act in co if "archetype" in act['name'].lower()])
+    sectors = sorted([act for act in co if "sector" in act['name'].lower()])
+
+    scores = {}
+    for archetype in archetypes:
+        # print("--> {}".format(archetype['name']))
+        fp_archetype_scores = write_dir / "monthly_{}.pickle".format(archetype['name'])
+        if fp_archetype_scores.exists():
+            scores_per_sector = read_pickle(fp_archetype_scores)
+        else:
+            scores_per_sector = {}
+            for sector in sectors:
+                demand_sector = get_demand_per_sector(archetype, sector)
+                lca = bc.LCA(demand_sector, method)
+                lca.lci()
+                lca.lcia()
+                # print("{:8.3f}  {}".format(lca.score, sector['name']))
+                scores_per_sector[sector['name']] = lca.score
+            write_pickle(scores_per_sector, fp_archetype_scores)
+        scores[archetype['name']] = scores_per_sector
+        # print("\n")
+    return scores
+
+
+def get_demand_per_sector(act, sector):
+    sector_name = sector['name'].replace(" sector", "")
+    demands = {}
+    for exc in act.exchanges():
+        if exc.input['category_coarse'] == sector_name:
+            demands[exc.input] = exc.amount
+    assert len(demands) == len(list(sector.exchanges())) - 1
+    return demands
+
+
+# def add_archetypes_consumption(co_name, archetypes_path, ):
+#     co = bd.Database(co_name)
+#     df = pd.read_csv(archetypes_path)
+#     all_consumption_codes = [act['code'] for act in co]
+#     codes_to_ignore = [code for code in df.iloc[0].index if code not in all_consumption_codes]
+#     codes_to_modify = {
+#         code: "a{}".format(code[2:]) for code in codes_to_ignore
+#         if code[:2] == 'mx' and "a{}".format(code[2:]) in all_consumption_codes
+#     }
+#     print(codes_to_modify)
+#     for i, df_row in df.iterrows():
+#         label = df_row['cluster_label_name']
+#         print("Creating consumption activity of archetype {}".format(label))
+#         # Create new activity
+#         act_name = "archetype_{}_consumption".format(label)
+#         try:
+#             co.get(act_name).delete()
+#         except:
+#             pass
+#         archetype_act = co.new_activity(
+#             act_name,
+#             name=act_name,
+#             location='CH',
+#             unit='1 month of consumption',
+#             cluster_label_def=df_row['cluster_label_def']
+#         )
+#         archetype_act.save()
+#         # Add exchanges to this activity
+#
+#         for code in df_row.index:
+#             if ("cg" not in code) and ("cluster" not in code) and (code not in codes_to_ignore):
+#                 archetype_act.new_exchange(
+#                     input=(co.name, code),
+#                     amount=df_row[code],
+#                     type='technosphere'
+#                 ).save()
+#         for code in codes_to_modify.keys():
+#             archetype_act.new_exchange(
+#                 input=(co.name, codes_to_modify[code]),
+#                 amount=df_row[code],
+#                 type='technosphere'
+#             ).save()
+#
+#     return
