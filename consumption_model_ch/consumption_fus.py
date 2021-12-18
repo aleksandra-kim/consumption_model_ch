@@ -414,12 +414,15 @@ def get_archetypes_scores_per_sector(co_name, method, write_dir):
     """Get total LCIA scores for all archetypes for one year of consumption split over sectors."""
 
     co = bd.Database(co_name)
-    archetypes = sorted([act for act in co if "archetype" in act['name'].lower()])
+    # archetypes = sorted([act for act in co if "archetype" in act['name'].lower()])
+    a1 = [act for act in co if "archetype_z" in act['name'].lower()]
+    a2 = [act for act in co if "archetype_ob" in act['name'].lower()]
+    archetypes = a1 + a2
     sectors = sorted([act for act in co if "sector" in act['name'].lower()])
 
     scores = {}
     for archetype in archetypes:
-        # print("--> {}".format(archetype['name']))
+        print("--> {}".format(archetype['name']))
         fp_archetype_scores = write_dir / "monthly_{}.pickle".format(archetype['name'])
         if fp_archetype_scores.exists():
             scores_per_sector = read_pickle(fp_archetype_scores)
