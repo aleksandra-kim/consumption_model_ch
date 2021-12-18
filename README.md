@@ -9,6 +9,9 @@ Note that, the original model was implemented only for the years 2009-2011. This
 
 Results
 =======
-![Climate change impacts by sector](docs/sector_scores.png)
 
-![table values](docs/yearly_scores.png)
+Climate change archetypes impacts by sector
+![Climate change archetypes impacts by sector](docs/sector_scores.png)
+
+Yearly climate change scores
+![Yearly climate change scores](docs/yearly_scores.png)
