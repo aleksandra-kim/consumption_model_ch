@@ -4,6 +4,7 @@ import bw2data as bd
 import bw2calc as bc
 from pathlib import Path
 import re
+from collections import Counter
 
 from .utils import get_habe_filepath, read_pickle, write_pickle
 
@@ -50,10 +51,10 @@ def add_consumption_categories(co_name):
             act.save()
 
 
-def add_consumption_sectors(co_name):
+def add_consumption_sectors(co_name, year_habe):
     """Add consumption sectors as separate activities in the consumption database."""
     co = bd.Database(co_name)
-    demand_act = co.search("ch hh average consumption")[0]
+    demand_act = co.search(f"ch hh average consumption {year_habe}")[0]
 
     cat_option = 'category_coarse'
 
@@ -102,12 +103,13 @@ def add_consumption_sectors(co_name):
             co.get(cat_of_interest).delete()
         except:
             pass
-        new_act = co.new_activity(cat_of_interest,
-                                  name="{} sector".format(cat_of_interest),
-                                  location='CH',
-                                  unit='1 month of consumption',
-                                  comment='Average consumption of one household',
-                                  )
+        new_act = co.new_activity(
+            cat_of_interest,
+            name=f"{cat_of_interest} sector, years {year_habe}",
+            location='CH',
+            unit='1 month of consumption',
+            comment=f'Average consumption of one household for the years {year_habe}',
+        )
         new_act.save()
 
         # Add production exchange
@@ -128,13 +130,13 @@ def add_consumption_sectors(co_name):
 
 def add_consumption_all_hh(
         co_name,
+        year_habe,
         dir_habe=None,
         option='disaggregated',
         write_dir="write_files",
 ):
     # 1. Get some metadata from the consumption database
     co = bd.Database(co_name)
-    year_habe = co.metadata['year_habe']
     dir_habe = dir_habe or co.metadata['dir_habe']
 
     # 2. Extract total demand from HABE
@@ -183,12 +185,12 @@ def add_consumption_all_hh(
     meta.set_index('category2', inplace=True)
 
     # Add info
-    total_consumption['n_households'] = meta.loc['HABE{}_Ausgaben'.format(year_habe)]['n_rows']
-    total_consumption['n_people'] = meta.loc['HABE{}_Personen'.format(year_habe)]['n_rows']
+    total_consumption['n_households'] = meta.loc[f'HABE{year_habe}_Ausgaben']['n_rows']
+    total_consumption['n_people'] = meta.loc[f'HABE{year_habe}_Personen']['n_rows']
 
     # Save total demand
     write_dir = Path(write_dir)
-    path_demand = write_dir / "habe_totaldemands.xlsx"
+    path_demand = write_dir / f"habe_totaldemands_{year_habe}.xlsx"
     total_consumption.to_excel(path_demand)
 
     # 3. Options
@@ -230,7 +232,7 @@ def add_consumption_all_hh(
         n_households = None
 
     # 4. Add total inputs from Andi's model as swiss consumption activity
-    co_act_name = 'ch hh all consumption {}'.format(option)
+    co_act_name = f'ch hh all consumption {option}, years {year_habe}'
     try:
         co.get(co_act_name).delete()
     except:
@@ -245,6 +247,7 @@ def add_consumption_all_hh(
     ).save()
     consumption_all['agg_option'] = option
     consumption_all['n_households'] = n_households
+    consumption_all['year_habe'] = year_habe
     consumption_all.save()
     # Smth with codes
     codes = [act['code'] for act in co]
@@ -255,9 +258,12 @@ def add_consumption_all_hh(
         # if "mx" in code:
         #     factor = 12 # TODO?? divide by number of months
         if code in codes:
-            consumption_all.new_exchange(input=(co.name, code),
-                                         amount=df.loc[i]['amount'] / factor,
-                                         type='technosphere').save()
+            consumption_all.new_exchange(
+                input=(co.name, code),
+                amount=df.loc[i]['amount'] / factor,
+                type='technosphere',
+                has_uncertainty=True,
+            ).save()
         else:
             unlinked_codes.append(code)
 
@@ -270,9 +276,10 @@ def add_consumption_average_hh(consumption_all):
     """Add consumption activity for an average household."""
     co_name = consumption_all.get('database')
     option = consumption_all.get('agg_option')
+    year_habe = consumption_all.get('year_habe')
     n_households = consumption_all.get('n_households')
     co = bd.Database(co_name)
-    co_average_act_name = 'ch hh average consumption {}'.format(option)
+    co_average_act_name = f'ch hh average consumption {option}, years {year_habe}'
     try:
         co.get(co_average_act_name).delete()
     except:
@@ -286,21 +293,26 @@ def add_consumption_average_hh(consumption_all):
 
 def add_consumption_activities(
         co_name,
+        year_habe,
         dir_habe=None,
         option='disaggregated',
 ):
     # Delete all existing consumption activities
     co = bd.Database(co_name)
-    [act.delete() for act in co.search("consumption disaggregated")]
-    [act.delete() for act in co.search("consumption aggregated")]
+    [act.delete() for act in co if f"consumption disaggregated, years {year_habe}" in act['name']]
+    [act.delete() for act in co if f"consumption aggregated, years {year_habe}" in act['name']]
 
     # Add new consumption activities
     dir_habe = dir_habe or co.metadata['dir_habe']
-    add_consumption_all_hh(co_name, dir_habe, option='disaggregated', )
-    add_consumption_all_hh(co_name, dir_habe, option='aggregated', )
+    add_consumption_all_hh(co_name, year_habe, dir_habe, option='disaggregated', )
+    add_consumption_all_hh(co_name, year_habe, dir_habe, option='aggregated', )
 
-    demand_act_dis = co.search('consumption disaggregated')[0]
-    demand_act_agg = co.search('consumption aggregated')[0]
+    demand_act_dis = [act for act in co if f"consumption disaggregated, years {year_habe}" in act['name']]
+    assert len(demand_act_dis) == 1
+    demand_act_dis = demand_act_dis[0]
+    demand_act_agg = [act for act in co if f"consumption aggregated, years {year_habe}" in act['name']]
+    assert len(demand_act_agg) == 1
+    demand_act_agg = demand_act_agg[0]
     dict_dis = {a.input: a.amount for a in demand_act_dis.exchanges() if a['type'] == 'technosphere'}
     dict_agg = {b.input: b.amount for b in demand_act_agg.exchanges() if b['type'] == 'technosphere'}
 
@@ -317,8 +329,8 @@ def add_consumption_activities(
     demand_act_dis.delete()
     demand_act_agg.delete()
 
-    add_consumption_all_hh(co_name, dir_habe, option=option, )
-    demand = co.search('consumption aggregated')
+    add_consumption_all_hh(co_name, year_habe, dir_habe, option=option, )
+    demand = [act for act in co if f"consumption aggregated, years {year_habe}" in act['name']]
     assert len(demand) == 1
     demand = demand[0]
     n_households_new = demand['n_households']
@@ -339,37 +351,101 @@ def add_consumption_activities(
     add_consumption_average_hh(demand)
 
     write_dir = Path("write_files")
-    path_demand_comparison = write_dir / "comparison_total_demands.xlsx"
+    path_demand_comparison = write_dir / f"comparison_total_demands_{year_habe}.xlsx"
     demand_new_dict = {c.input['name']: c.amount for c in demand.exchanges() if c['type'] == 'technosphere'}
     dis_agg_ratio = {k: demand_act_agg_dict.get(k, 0) / v for k, v in demand_act_dis_dict.items()}
     dis_new_ratio = {k: demand_new_dict.get(k, 0) / v for k, v in demand_act_dis_dict.items()}
 
-    year_habe = co.metadata['year_habe']
     df = pd.DataFrame.from_dict(
         {
             'Froemelt': demand_act_dis_dict,
             'HABE 091011': demand_act_agg_dict,
             'HABE 091011 / Froemelt': dis_agg_ratio,
-            'HABE {}'.format(year_habe): demand_new_dict,
-            'HABE {} / Froemelt'.format(year_habe): dis_new_ratio,
+            f'HABE {year_habe}': demand_new_dict,
+            f'HABE {year_habe} / Froemelt': dis_new_ratio,
         }
     )
     df.to_excel(path_demand_comparison)
 
 
-def add_archetypes_consumption(co_name, archetypes_path=None):
+def get_households_numpeople_archetype(dir_habe, fp_habe_clustering, year_habe):
+    """Returns a dataframe with household IDs with  number of residents and cluster label."""
+    df_habe_clustering = pd.read_csv(fp_habe_clustering)
+    df_habe_clustering.columns = [col.lower() for col in df_habe_clustering.columns]
+    df_habe_clustering = df_habe_clustering[['haushaltid', 'cluster_label_name']]
+
+    fp_personen = get_habe_filepath(dir_habe, year_habe, "Personen")
+    df_personen = pd.read_csv(fp_personen, sep='\t')
+    personen_per_archetype = dict(Counter(df_personen["HaushaltID"]))
+    personen_per_archetype = [{'haushaltid': k, "n_people": v} for k, v in personen_per_archetype.items()]
+    df_personen_per_archetype = pd.DataFrame.from_dict(personen_per_archetype)
+    df = pd.concat(
+        [
+            df_personen_per_archetype.set_index('haushaltid'),
+            df_habe_clustering.set_index('haushaltid'),
+        ],
+        join='inner',
+        axis=1,
+    )
+    return df
+
+
+def get_people_per_archetypes(dir_habe, fp_habe_clustering, year_habe):
+    """Returns dictionary with an average number of people per household in the given household archetype."""
+    df = get_households_numpeople_archetype(dir_habe, fp_habe_clustering, year_habe)
+    archetype_labels = sorted(list(set(df['cluster_label_name'])))
+    dict_ = {}
+    for archetype_label in archetype_labels:
+        mask = df['cluster_label_name'] == archetype_label
+        df_archetype = df[mask]
+        n_households = len(df_archetype)
+        n_people = df_archetype['n_people'].sum()
+        dict_[archetype_label] = n_people/n_households
+    return dict_
+
+
+def get_income_per_archetypes(dir_habe, fp_habe_clustering, year_habe):
+    """Returns dictionary with an average number of people per household in the given household archetype."""
+
+    fp_standard = get_habe_filepath(dir_habe, year_habe, "Standard")
+    df_standard = pd.read_csv(fp_standard, sep='\t')
+    df_archetypes = get_households_numpeople_archetype(dir_habe, fp_habe_clustering, year_habe)
+    df = pd.concat(
+        [
+            df_standard.set_index('HaushaltID')['Bruttoeinkommen08'],
+            df_archetypes,
+        ],
+        join='inner',
+        axis=1,
+    )
+    archetype_labels = sorted(list(set(df['cluster_label_name'])))
+    dict_ = {}
+    for archetype_label in archetype_labels:
+        mask = df['cluster_label_name'] == archetype_label
+        df_archetype = df[mask]
+        n_households = len(df_archetype)
+        income = df_archetype['Bruttoeinkommen08'].sum()
+        dict_[archetype_label] = income/n_households
+    return dict_
+
+
+def add_archetypes_consumption(co_name, year_habe, fp_archetypes=None, fp_habe_clustering=None):
     print("Creating archetypes functional units")
-    if archetypes_path is None:
-        archetypes_path = dirpath / "functional_units" / "hh_archetypes_weighted_working_tables.csv"
+    if fp_archetypes is None:
+        fp_archetypes = dirpath / "functional_units" / f"hh_archetypes_weighted_working_tables_{year_habe}.csv"
+    if fp_habe_clustering is None:
+        fp_habe_clustering = dirpath / "functional_units" / "habe_clustering.csv"
     co = bd.Database(co_name)
-    df = pd.read_csv(archetypes_path)
+    df = pd.read_csv(fp_archetypes)
     all_consumption_codes = [act['code'] for act in co]
     codes_to_ignore = [code for code in df.iloc[0].index if code not in all_consumption_codes]
     # print(codes_to_ignore)
+    ppl_per_archetype_dict = get_people_per_archetypes(co.metadata['dir_habe'], fp_habe_clustering, year_habe)
+    income_per_archetype_dict = get_income_per_archetypes(co.metadata['dir_habe'], fp_habe_clustering, year_habe)
     for i, df_row in df.iterrows():
-        label = df_row['cluster_label_name']
+        archetype_label = df_row['cluster_label_name']
         # Create new activity
-        act_name = "archetype_{}_consumption".format(label)
+        act_name = f"archetype {archetype_label.upper()} consumption, years {year_habe}"
         try:
             co.get(act_name).delete()
         except:
@@ -379,7 +455,9 @@ def add_archetypes_consumption(co_name, archetypes_path=None):
             name=act_name,
             location='CH',
             unit='1 month of consumption',
-            cluster_label_def=df_row['cluster_label_def']
+            cluster_label_def=df_row['cluster_label_def'],
+            ppl_per_household=ppl_per_archetype_dict[archetype_label],
+            income_per_household=income_per_archetype_dict[archetype_label],
         )
         archetype_act.save()
         # Add exchanges to this activity
@@ -388,15 +466,15 @@ def add_archetypes_consumption(co_name, archetypes_path=None):
                 archetype_act.new_exchange(
                     input=(co.name, code),
                     amount=df_row[code],
-                    type='technosphere'
+                    type='technosphere',
                 ).save()
     return
 
 
-def get_archetypes_scores_per_month(co_name, method, fp_archetypes_scores):
+def get_archetypes_scores_per_month(co_name, year_habe, method, fp_archetypes_scores):
     """Get total LCIA scores for all archetypes for one month of consumption."""
     co = bd.Database(co_name)
-    archetypes = sorted([act for act in co if "archetype" in act['name'].lower()])
+    archetypes = sorted([act for act in co if "archetype" in act['name'].lower() and str(year_habe) in act['name']])
     if fp_archetypes_scores.exists():
         archetypes_scores = read_pickle(fp_archetypes_scores)
     else:
@@ -410,20 +488,20 @@ def get_archetypes_scores_per_month(co_name, method, fp_archetypes_scores):
     return archetypes_scores
 
 
-def get_archetypes_scores_per_sector(co_name, method, write_dir):
+def get_archetypes_scores_per_sector(co_name, year_habe, method, write_dir):
     """Get total LCIA scores for all archetypes for one year of consumption split over sectors."""
 
     co = bd.Database(co_name)
-    # archetypes = sorted([act for act in co if "archetype" in act['name'].lower()])
-    a1 = [act for act in co if "archetype_z" in act['name'].lower()]
-    a2 = [act for act in co if "archetype_ob" in act['name'].lower()]
-    archetypes = a1 + a2
-    sectors = sorted([act for act in co if "sector" in act['name'].lower()])
+    archetypes = sorted([act for act in co if "archetype" in act['name'].lower() and str(year_habe) in act['name']])
+    # a1 = [act for act in co if f"archetype_z_years_{year_habe}" in act['name'].lower()]
+    # a2 = [act for act in co if f"archetype_ob_years_{year_habe}" in act['name'].lower()]
+    # archetypes = a1 + a2
+    sectors = sorted([act for act in co if f"sector, years {year_habe}" in act['name'].lower()])
 
     scores = {}
     for archetype in archetypes:
         print("--> {}".format(archetype['name']))
-        fp_archetype_scores = write_dir / "monthly_{}.pickle".format(archetype['name'])
+        fp_archetype_scores = write_dir / f"monthly_{archetype['name']}.pickle"
         if fp_archetype_scores.exists():
             scores_per_sector = read_pickle(fp_archetype_scores)
         else:
@@ -442,7 +520,7 @@ def get_archetypes_scores_per_sector(co_name, method, write_dir):
 
 
 def get_demand_per_sector(act, sector):
-    sector_name = sector['name'].replace(" sector", "")
+    sector_name = sector['name'][:-21]
     demands = {}
     for exc in act.exchanges():
         if exc.input['category_coarse'] == sector_name:

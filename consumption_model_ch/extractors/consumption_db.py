@@ -59,7 +59,6 @@ class ConsumptionDbExtractor(object):
         cls,
         directory,
         name,
-        year,
         exclude_databases=(),
         replace_agribalyse_with_ecoinvent=True,
     ):
@@ -78,8 +77,6 @@ class ConsumptionDbExtractor(object):
             `HABE*_Datenbeschreibung_*UOe.xlsx`
         name : str
             Name of the consumption database.
-        year : str
-            String that specifies, which HABE to use. Should be one of the following: `091011`, `121314` or `151617`.
         exclude_databases : list of str
             Contains names of databases that were present in A. Froemelt's implementation, but are excluded from the current
             analysis. We assume that ecoinvent is always included, heia is always excluded, but exiobase and agribalyse may
@@ -91,7 +88,6 @@ class ConsumptionDbExtractor(object):
         df_brightway, filepath_consumption_excel = cls.get_consumption_df(
             directory,
             name=name,
-            year=year,
             exclude_databases=exclude_databases,
             replace_agribalyse_with_ecoinvent=replace_agribalyse_with_ecoinvent,
         )
@@ -121,12 +117,13 @@ class ConsumptionDbExtractor(object):
         return df
 
     @classmethod
-    def extract_habe_units(cls, directory, year):
+    def extract_habe_units(cls, directory):
         """Extract information about units of some activities from HABE metadata."""
 
         assert Path(directory).exists()
 
         # Get path of the HABE data description (Datenbeschreibung)
+        year = '091011'
         path_datenbeschreibung = get_habe_filepath(directory, year, 'Datenbeschreibung')
 
         # Get meta information about units
@@ -155,7 +152,6 @@ class ConsumptionDbExtractor(object):
             cls,
             directory,
             name,
-            year,
             exclude_databases=(),
             replace_agribalyse_with_ecoinvent=True,
     ):
@@ -171,7 +167,6 @@ class ConsumptionDbExtractor(object):
             df = cls.create_consumption_excel(
                 directory,
                 name=name,
-                year=year,
                 exclude_databases=exclude_databases,
                 replace_agribalyse_with_ecoinvent=replace_agribalyse_with_ecoinvent,
             )
@@ -183,12 +178,10 @@ class ConsumptionDbExtractor(object):
             cls,
             directory,
             name,
-            year,
             exclude_databases=(),
             replace_agribalyse_with_ecoinvent=True,
     ):
         """Create `consumption_db.xlsx` that contains consumption database in the bw excel format and write it."""
-
         exclude_databases = [exclude_db.lower() for exclude_db in exclude_databases]
         # Read consumption excel into a dataframe
         df_consumption = get_consumption_df()
@@ -197,7 +190,7 @@ class ConsumptionDbExtractor(object):
         df_brightway = cls.create_empty_brightway_df(name)
 
         # Add activities and exchanges into brightway dataframe
-        code_unit = cls.extract_habe_units(directory, year)
+        code_unit = cls.extract_habe_units(directory)
         act_indices = df_consumption.index[df_consumption['ConversionDem2FU'].notna()].tolist()
         for ind in act_indices:
             # For each row in the original consumption excel file

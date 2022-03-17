@@ -7,7 +7,7 @@ def plot_archetypes_scores_yearly(archetypes_scores):
     scores_arr = np.array(list(archetypes_scores.values()))
     argsort = np.argsort(scores_arr)
     names = np.array(list(archetypes_scores.keys()))[argsort]
-    names = [n.replace("archetype_", "").replace("_consumption", "") for n in names]
+    names = ["".join(list(filter(lambda c: c.isupper(), n))) for n in names]
     fig.add_trace(
         go.Scatter(
             x=np.arange(len(names)),
@@ -29,28 +29,28 @@ def plot_archetypes_scores_yearly(archetypes_scores):
     return fig
 
 
-def plot_archetypes_scores_per_sector(archetypes_scores):
+def plot_archetypes_scores_per_sector(archetypes_scores, year):
     # Define some known variables
     sectors_dict = {
         "Food": [
-            "Food and non-alcoholic beverages sector",
-            "Alcoholic beverages and tobacco sector",
+            f"Food and non-alcoholic beverages sector, years {year}",
+            f"Alcoholic beverages and tobacco sector, years {year}",
         ],
-        "Restaurants & hotels": ["Restaurants and hotels sector"],
-        "Clothing": ["Clothing and footwear sector"],
-        "Housing": ["Housing, water, electricity, gas and other fuels sector"],
-        "Furnishings": ["Furnishings, household equipment and routine household maintenance sector"],
-        "Health": ["Health sector"],
-        "Transport": ["Transport sector"],
-        "Communication": ["Communication sector"],
-        "Recreation": ["Recreation and culture sector"],
-        "Education": ["Education sector"],
+        "Restaurants & hotels": [f"Restaurants and hotels sector, years {year}"],
+        "Clothing": [f"Clothing and footwear sector, years {year}"],
+        "Housing": [f"Housing, water, electricity, gas and other fuels sector, years {year}"],
+        "Furnishings": [f"Furnishings, household equipment and routine household maintenance sector, years {year}"],
+        "Health": [f"Health sector, years {year}"],
+        "Transport": [f"Transport sector, years {year}"],
+        "Communication": [f"Communication sector, years {year}"],
+        "Recreation": [f"Recreation and culture sector, years {year}"],
+        "Education": [f"Education sector, years {year}"],
         "Other": [
-            "Durable goods sector",
-            "Fees sector",
-            "Miscellaneous goods and services sector",
-            "Other insurance premiums sector",
-            "Premiums for life insurance sector",
+            f"Durable goods sector, years {year}",
+            f"Fees sector, years {year}",
+            f"Miscellaneous goods and services sector, years {year}",
+            f"Other insurance premiums sector, years {year}",
+            f"Premiums for life insurance sector, years {year}",
         ]
     }
     num_people_dict = {
@@ -60,7 +60,7 @@ def plot_archetypes_scores_per_sector(archetypes_scores):
     }
     months_in_year = 12
     names_letters_dict = {
-        name: name.replace("archetype_", "").replace("_consumption", "") for name in archetypes_scores.keys()
+        name: "".join(list(filter(lambda c: c.isupper(), name))) for name in archetypes_scores.keys()
     }
     # Sort archetypes
     total_scores = []

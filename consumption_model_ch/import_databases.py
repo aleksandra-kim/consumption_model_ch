@@ -31,12 +31,11 @@ def import_exiobase_3(ex3_path, ex3_name):
         ex.write_database()
 
 
-def import_consumption_db(directory_habe, co_name, year, ei33_path, exclude_databases=(), exiobase_path=None):
+def import_consumption_db(directory_habe, co_name, ei33_path, exclude_databases=(), exiobase_path=None):
     if co_name not in bd.databases:
         create_ecoinvent_33_project(ei33_path)
         co = ConsumptionDbImporter(
             directory_habe,
-            year=year,
             exclude_databases=exclude_databases,
             replace_agribalyse_with_ecoinvent=True,
             exiobase_path=exiobase_path,

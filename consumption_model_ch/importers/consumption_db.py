@@ -22,7 +22,6 @@ class ConsumptionDbImporter(LCIImporter):
         self,
         directory,
         name=None,
-        year='091011',
         exclude_databases=(),
         replace_agribalyse_with_ecoinvent=True,
         exiobase_path=None,
@@ -30,11 +29,9 @@ class ConsumptionDbImporter(LCIImporter):
         start = time()
         self.directory = directory
         self.db_name = name or CONSUMPTION_DB_NAME
-        self.year = year
         self.df, self.filepath_consumption_excel = ConsumptionDbExtractor.extract(
             directory,
             name=self.db_name,
-            year=self.year,
             exclude_databases=exclude_databases,
             replace_agribalyse_with_ecoinvent=replace_agribalyse_with_ecoinvent,
         )
@@ -148,7 +145,6 @@ class ConsumptionDbImporter(LCIImporter):
             {
                 "fp_consumption_db": str(self.filepath_consumption_excel),
                 "dir_habe": str(self.directory),
-                "year_habe": self.year,
             }
         )
         db._metadata.flush()
