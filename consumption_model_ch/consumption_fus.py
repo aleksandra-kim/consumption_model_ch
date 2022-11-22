@@ -1,3 +1,5 @@
+import pdb
+
 import pandas as pd
 import numpy as np
 import bw2data as bd
@@ -237,7 +239,9 @@ def add_consumption_all_hh(
         co.get(co_act_name).delete()
     except:
         pass
+
     consumption_all = co.new_activity(co_act_name, name=co_act_name, location='CH', unit='1 month of consumption')
+
     consumption_all.save()
     # Add production exchange for the activity `consumption`
     consumption_all.new_exchange(

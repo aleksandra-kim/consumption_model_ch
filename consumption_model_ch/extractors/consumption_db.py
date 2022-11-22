@@ -58,6 +58,7 @@ class ConsumptionDbExtractor(object):
     def extract(
         cls,
         directory,
+        year,
         name,
         exclude_databases=(),
         replace_agribalyse_with_ecoinvent=True,
@@ -87,6 +88,7 @@ class ConsumptionDbExtractor(object):
         """
         df_brightway, filepath_consumption_excel = cls.get_consumption_df(
             directory,
+            year,
             name=name,
             exclude_databases=exclude_databases,
             replace_agribalyse_with_ecoinvent=replace_agribalyse_with_ecoinvent,
@@ -117,13 +119,13 @@ class ConsumptionDbExtractor(object):
         return df
 
     @classmethod
-    def extract_habe_units(cls, directory):
+    def extract_habe_units(cls, directory, year):
         """Extract information about units of some activities from HABE metadata."""
 
         assert Path(directory).exists()
 
         # Get path of the HABE data description (Datenbeschreibung)
-        year = '091011'
+        # year = '091011'
         path_datenbeschreibung = get_habe_filepath(directory, year, 'Datenbeschreibung')
 
         # Get meta information about units
@@ -151,6 +153,7 @@ class ConsumptionDbExtractor(object):
     def get_consumption_df(
             cls,
             directory,
+            year,
             name,
             exclude_databases=(),
             replace_agribalyse_with_ecoinvent=True,
@@ -166,6 +169,7 @@ class ConsumptionDbExtractor(object):
             print("--> Creating consumption_db.xlsx, this might take some time")
             df = cls.create_consumption_excel(
                 directory,
+                year,
                 name=name,
                 exclude_databases=exclude_databases,
                 replace_agribalyse_with_ecoinvent=replace_agribalyse_with_ecoinvent,
@@ -177,6 +181,7 @@ class ConsumptionDbExtractor(object):
     def create_consumption_excel(
             cls,
             directory,
+            year,
             name,
             exclude_databases=(),
             replace_agribalyse_with_ecoinvent=True,
@@ -190,7 +195,7 @@ class ConsumptionDbExtractor(object):
         df_brightway = cls.create_empty_brightway_df(name)
 
         # Add activities and exchanges into brightway dataframe
-        code_unit = cls.extract_habe_units(directory)
+        code_unit = cls.extract_habe_units(directory, year)
         act_indices = df_consumption.index[df_consumption['ConversionDem2FU'].notna()].tolist()
         for ind in act_indices:
             # For each row in the original consumption excel file
