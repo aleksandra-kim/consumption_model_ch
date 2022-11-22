@@ -21,6 +21,7 @@ class ConsumptionDbImporter(LCIImporter):
     def __init__(
         self,
         directory,
+        year,
         name=None,
         exclude_databases=(),
         replace_agribalyse_with_ecoinvent=True,
@@ -28,9 +29,11 @@ class ConsumptionDbImporter(LCIImporter):
     ):
         start = time()
         self.directory = directory
+        self.year = year
         self.db_name = name or CONSUMPTION_DB_NAME
         self.df, self.filepath_consumption_excel = ConsumptionDbExtractor.extract(
             directory,
+            year,
             name=self.db_name,
             exclude_databases=exclude_databases,
             replace_agribalyse_with_ecoinvent=replace_agribalyse_with_ecoinvent,
