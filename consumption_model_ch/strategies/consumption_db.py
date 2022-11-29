@@ -245,7 +245,7 @@ def link_exiobase(co, ex_name, ex_path):
 
     filepath = Path(ex_path) / filename
 
-    df = pd.read_table(filepath)
+    df = pd.read_table(filepath, low_memory=False)
     df = df[columns]
     df.columns = ['location', 'name', 'hh_consumption']
     df = df.dropna()
