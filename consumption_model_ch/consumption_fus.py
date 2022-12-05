@@ -334,7 +334,7 @@ def add_consumption_activities(
     demand_act_agg.delete()
 
     add_consumption_all_hh(co_name, year_habe, dir_habe, option=option, )
-    demand = [act for act in co if f"consumption aggregated, years {year_habe}" in act['name']]
+    demand = [act for act in co if f"consumption {option}, years {year_habe}" in act['name']]
     assert len(demand) == 1
     demand = demand[0]
     n_households_new = demand['n_households']
